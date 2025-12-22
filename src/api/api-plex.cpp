@@ -4,8 +4,8 @@
 #include "src/logger/log-utils.h"
 #include "src/types.h"
 
-#include <external/pugixml/src/pugixml.hpp>
 #include <format>
+#include <pugixml/pugixml.hpp>
 #include <ranges>
 
 namespace remote_scan

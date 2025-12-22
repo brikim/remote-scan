@@ -2,7 +2,7 @@
 
 #include "src/config-reader/config-reader-types.h"
 
-#include <httplib.h>
+#include <httplib/httplib.h>
 #include <string>
 
 namespace remote_scan

@@ -5,11 +5,8 @@ workspace "remotescan"
     startproject "remotescan" -- Optional: Sets a default startup project in Visual Studio
 
     IncludeDir = {}
+    IncludeDir["external"] = "external"
     IncludeDir["efsw"] = "external/efsw/include"
-    IncludeDir["json"] = "external/json"
-    IncludeDir["spdlog"] = "external/spdlog/include"
-    IncludeDir["httplib"] = "external/httplib"
-    IncludeDir["pugixml"] = "external/pugixml/src"
 
     project "remotescan"
         kind "ConsoleApp" -- Or "StaticLib", "SharedLib"
@@ -19,15 +16,12 @@ workspace "remotescan"
         -- Specify Clang as the toolset for Visual Studio projects
         toolset "clang"
 
-        files { "src/**.cpp", "src/**.h", "external/pugixml/src/pugixml.cpp" } -- Includes all .cpp and .h files in the src directory
+        files { "src/**.cpp", "src/**.h", "external/pugixml/pugixml.cpp" } -- Includes all .cpp and .h files in the src directory
         includedirs { 
             "include",
             "./",
+            "%{IncludeDir.external}",
             "%{IncludeDir.efsw}",
-            "%{IncludeDir.json}",
-            "%{IncludeDir.spdlog}",
-            "%{IncludeDir.httplib}",
-            "%{IncludeDir.pugixml}",
         } -- Adds the 'include' directory to the project's include paths
 
         filter "configurations:debug"

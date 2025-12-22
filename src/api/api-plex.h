@@ -3,7 +3,7 @@
 #include "src/api/api-base.h"
 #include "src/config-reader/config-reader-types.h"
 
-#include <httplib.h>
+#include <httplib/httplib.h>
 #include <list>
 #include <string>
 
