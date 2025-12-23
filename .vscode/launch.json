@@ -1,0 +1,25 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++: Clang/LLDB Debug Active File",
+      "type": "lldb", // Specifies the debugger type for CodeLLDB
+      "request": "launch",
+      "program": "/home/brian/code/remote-scan/build/bin/debug/remotescan", // Path to your compiled executable
+      "args": [],
+      "stopAtEntry": false, // Set to true to stop at the beginning of main
+      "cwd": "${fileDirname}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "lldb", // Required for the C/C++ extension to interface correctly
+      "miDebuggerPath": "/usr/bin/lldb", // Path to the LLDB executable (adjust if different)
+      // "preLaunchTask": "C/C++: clang++ build active file" // Optional: specify a build task
+      "env": {
+        "CONFIG_PATH": "/home/brian/code/remote-scan/config"
+      }
+    }
+  ]
+}

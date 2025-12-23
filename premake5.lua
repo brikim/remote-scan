@@ -26,7 +26,6 @@ workspace "remotescan"
 
         filter "configurations:debug"
             defines { "DEBUG" }
-            defines { "_CRT_SECURE_NO_WARNINGS" }
             symbols "On"
             libdirs {
                 "external/efsw/lib"
@@ -35,9 +34,11 @@ workspace "remotescan"
             "efsw-static-debug"
             }
 
+        filter ("configurations:debug", "system:windows")
+            defines { "_CRT_SECURE_NO_WARNINGS" }
+
         filter "configurations:release"
             defines { "NDEBUG" }
-            defines { "_CRT_SECURE_NO_WARNINGS" }
             optimize "On"
             libdirs {
                 "external/efsw/lib"
@@ -45,9 +46,3 @@ workspace "remotescan"
             links {
                 "efsw-static-release"
             }
-
-    externalproject "efsw-static-lib"
-        location "external/efsw/make/windows"
-        uuid "57940020-8E99-AEB6-271F-61E0F7F6B73B"
-        kind "StaticLib"
-        language "C++"
