@@ -35,7 +35,7 @@ namespace remote_scan
 
    ConfigReader::ConfigReader()
    {
-      _putenv_s("CONFIG_PATH", "../config");
+      //_putenv_s("CONFIG_PATH", "../config");
       if (const auto* configPath = std::getenv("CONFIG_PATH");
           configPath != nullptr)
       {

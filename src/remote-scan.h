@@ -25,7 +25,7 @@ namespace remote_scan
    class RemoteScan
    {
    public:
-      RemoteScan();
+      RemoteScan(std::shared_ptr<ConfigReader> configReader);
       virtual ~RemoteScan() = default;
 
       void Run();
@@ -49,8 +49,8 @@ namespace remote_scan
       bool NotifyServer(ApiType type, const ScanLibraryConfig& library);
       void NotifyMediaServers(const ActiveMonitor& monitor);
 
-      ConfigReader configReader_;
-      ApiManager apiManager_{configReader_};
+      std::shared_ptr<ConfigReader> configReader_;
+      ApiManager apiManager_;
 
       std::vector<std::pair<std::unique_ptr<efsw::FileWatcher>, std::unique_ptr<UpdateListener>>> watchers_;
 

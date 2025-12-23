@@ -1,6 +1,7 @@
 #pragma once
 
 #include "log-apprise.h"
+#include "src/config-reader/config-reader-types.h"
 
 #include <memory>
 #include <spdlog/spdlog.h>
@@ -13,6 +14,8 @@ namespace remote_scan
    public:
       // Returns a static instance of the Logger class
       static Logger& Instance();
+
+      void InitApprise(const AppriseLoggingConfig& config);
 
       void Trace(const std::string& msg);
       void Info(const std::string& msg);

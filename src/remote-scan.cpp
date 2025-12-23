@@ -9,9 +9,11 @@
 
 namespace remote_scan
 {
-   RemoteScan::RemoteScan()
+   RemoteScan::RemoteScan(std::shared_ptr<ConfigReader> configReader)
+      : configReader_(configReader)
+      , apiManager_(configReader)
    {
-      const auto& config{configReader_.GetRemoteScanConfig()};
+      const auto& config{configReader_->GetRemoteScanConfig()};
       for (const auto& scan : config.scans)
       {
          auto& watcherPair{watchers_.emplace_back(std::make_pair(std::make_unique<efsw::FileWatcher>(),
@@ -27,6 +29,12 @@ namespace remote_scan
 
    void RemoteScan::Run()
    {
+      if (configReader_->IsConfigValid() == false)
+      {
+         Logger::Instance().Info("Config file not valid shutting down");
+         return;
+      }
+
       // Create the thread to monitor active scans
       monitorThread_ = std::make_unique<std::jthread>([this](std::stop_token stopToken) {
          this->Monitor(stopToken);
@@ -39,7 +47,7 @@ namespace remote_scan
       }
 
       // Hold the main thread until shutdown is requested
-      while (!shutdown_.load())
+      while (shutdown_.load() == false)
       {
          std::this_thread::sleep_for(std::chrono::seconds(1));
       }
@@ -89,7 +97,7 @@ namespace remote_scan
 
    void RemoteScan::NotifyMediaServers(const ActiveMonitor& monitor)
    {
-      const auto& scanConfig{configReader_.GetRemoteScanConfig()};
+      const auto& scanConfig{configReader_->GetRemoteScanConfig()};
       auto scanIter{std::ranges::find_if(scanConfig.scans, [&monitor](const auto& scan) { return scan.name == monitor.scanName; })};
       if (scanIter == scanConfig.scans.end())
       {
@@ -142,7 +150,7 @@ namespace remote_scan
          }
 
          if (auto currentTime{std::chrono::system_clock::now()};
-             std::chrono::duration_cast<std::chrono::seconds>(currentTime - lastNotifyTime_).count() >= configReader_.GetRemoteScanConfig().secondsBetweenNotifies)
+             std::chrono::duration_cast<std::chrono::seconds>(currentTime - lastNotifyTime_).count() >= configReader_->GetRemoteScanConfig().secondsBetweenNotifies)
          {
             // Hold the lock while the active monitors are being processed
             std::scoped_lock scopedMonitorLock(monitorLock_);
@@ -151,7 +159,7 @@ namespace remote_scan
             for (auto iter{activeMonitors_.begin()}; iter != activeMonitors_.end(); ++iter)
             {
                auto& monitor{*iter};
-               if (std::chrono::duration_cast<std::chrono::seconds>(currentTime - monitor.time).count() >= configReader_.GetRemoteScanConfig().secondsBeforeNotify)
+               if (std::chrono::duration_cast<std::chrono::seconds>(currentTime - monitor.time).count() >= configReader_->GetRemoteScanConfig().secondsBeforeNotify)
                {
                   lastNotifyTime_ = currentTime;
                   NotifyMediaServers(monitor);
@@ -249,7 +257,7 @@ namespace remote_scan
 
    bool RemoteScan::GetScanPathValid(std::string_view path)
    {
-      for (const auto& ignoreFolder : configReader_.GetIgnoreFolders())
+      for (const auto& ignoreFolder : configReader_->GetIgnoreFolders())
       {
          if (path.find(ignoreFolder) != std::string_view::npos)
          {
@@ -261,7 +269,7 @@ namespace remote_scan
 
    bool RemoteScan::GetFileExtensionValid(std::string_view filename)
    {
-      const auto& validFileExtensions{configReader_.GetValidFileExtensions()};
+      const auto& validFileExtensions{configReader_->GetValidFileExtensions()};
       return validFileExtensions.empty() ? true : std::ranges::any_of(validFileExtensions, [filename](const auto& extension) { return filename.ends_with(extension); });
    }
 
@@ -275,6 +283,8 @@ namespace remote_scan
 
    void RemoteScan::ProcessShutdown()
    {
+      Logger::Instance().Info("Shutting Down");
+
       shutdown_.store(true);
    }
 }

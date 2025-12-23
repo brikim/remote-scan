@@ -8,14 +8,13 @@
 
 namespace remote_scan
 {
-   ApiManager::ApiManager(const ConfigReader& configReader)
+   ApiManager::ApiManager(std::shared_ptr<ConfigReader> configReader)
    {
-      SetupPlexApis(configReader.GetPlexServers());
-      SetupEmbyApis(configReader.GetEmbyServers());
+      SetupPlexApis(configReader->GetPlexServers());
+      SetupEmbyApis(configReader->GetEmbyServers());
 
-      const auto& jellyfinServers{configReader.GetJellyfinServers()};
+      const auto& jellyfinServers{configReader->GetJellyfinServers()};
       std::ranges::for_each(jellyfinServers, [](const auto& server) {
-
       });
    }
 

@@ -14,7 +14,7 @@ namespace remote_scan
    class ApiManager
    {
    public:
-      ApiManager(const ConfigReader& configReader);
+      ApiManager(std::shared_ptr<ConfigReader> configReader);
       virtual ~ApiManager() = default;
 
       [[nodiscard]] ApiBase* GetApi(ApiType type, std::string_view name) const;

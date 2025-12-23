@@ -2,7 +2,6 @@
 
 #include "ansii-remove-formatter.h"
 #include "logger-types.h"
-#include "src/config-reader/config-reader.h"
 
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -35,18 +34,20 @@ namespace remote_scan
          fileLogger->set_formatter(std::make_unique<AnsiiRemoveFormatter>());
          loggerVec_.emplace_back(fileLogger);
       }
-
-      ConfigReader configReader;
-      if (configReader.GetAppriseLogging().enabled)
-      {
-         logApprise_ = std::make_unique<LogApprise>(configReader.GetAppriseLogging());
-      }
    }
 
    Logger& Logger::Instance()
    {
       static Logger instance;
       return instance;
+   }
+
+   void Logger::InitApprise(const AppriseLoggingConfig& config)
+   {
+      if (config.enabled)
+      {
+         logApprise_ = std::make_unique<LogApprise>(config);
+      }
    }
 
    void Logger::Trace(const std::string& msg)
