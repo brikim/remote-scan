@@ -59,19 +59,27 @@ namespace remote_scan
          return;
       }
 
-      auto jsonData = nlohmann::json::parse(f);
-
-      if (ReadServers(jsonData) == false)
+      try
       {
-         Logger::Instance().Error("No Servers loaded exiting");
+         auto jsonData = nlohmann::json::parse(f);
+
+         if (ReadServers(jsonData) == false)
+         {
+            Logger::Instance().Error("No Servers loaded exiting");
+            return;
+         }
+
+         // The configuration file is valid
+         configValid_ = true;
+
+         ReadAppriseLogging(jsonData);
+         ReadScanConfig(jsonData);
+      }
+      catch (const std::exception& e)
+      {
+         Logger::Instance().Error(std::format("{} parsing has an error {}", pathFileName, e.what()));
          return;
       }
-
-      // The configuration file is valid
-      configValid_ = true;
-
-      ReadAppriseLogging(jsonData);
-      ReadScanConfig(jsonData);
    }
 
    void ConfigReader::ReadServerConfig(const nlohmann::json& jsonData, std::vector<ServerConfig>& serverVec)
@@ -210,12 +218,12 @@ namespace remote_scan
       }
    }
 
-   void ConfigReader::ReadScanConfig(const nlohmann::json& jsonData)
+   bool ConfigReader::ReadScanConfig(const nlohmann::json& jsonData)
    {
       if (jsonData.contains(REMOTE_SCAN) == false)
       {
          Logger::Instance().Error(std::format("{} settings not found in config file", REMOTE_SCAN));
-         return;
+         return false;
       }
 
       const auto& remoteScanJson = jsonData[REMOTE_SCAN];
@@ -229,20 +237,42 @@ namespace remote_scan
          configData_.remoteScan.secondsBetweenNotifies = remoteScanJson[SECONDS_BETWEEN_NOTIFIES].get<int>();
       }
 
-      for (const auto& scan : remoteScanJson[SCANS])
+      if (remoteScanJson.contains(SCANS))
       {
-         ReadIndividualScanConfig(scan);
+         for (const auto& scan : remoteScanJson[SCANS])
+         {
+            ReadIndividualScanConfig(scan);
+         }
+
+         if (configData_.remoteScan.scans.empty())
+         {
+            Logger::Instance().Error(std::format("{} settings {} no valid scans read in", REMOTE_SCAN, SCANS));
+            return false;
+         }
+      }
+      else
+      {
+         Logger::Instance().Error(std::format("{} settings {} not found in config file", REMOTE_SCAN, SCANS));
+         return false;
       }
 
-      for (const auto& ignoreFolder : remoteScanJson[IGNORE_FOLDERS])
+      if (remoteScanJson.contains(IGNORE_FOLDERS))
       {
-         ReadIgnoreFolder(ignoreFolder);
+         for (const auto& ignoreFolder : remoteScanJson[IGNORE_FOLDERS])
+         {
+            ReadIgnoreFolder(ignoreFolder);
+         }
       }
 
-      for (const auto& extension : remoteScanJson[VALID_FILE_EXTENSIONS])
+      if (remoteScanJson.contains(VALID_FILE_EXTENSIONS))
       {
-         ReadValidExtension(extension);
+         for (const auto& extension : remoteScanJson[VALID_FILE_EXTENSIONS])
+         {
+            ReadValidExtension(extension);
+         }
       }
+
+      return true;
    }
 
    bool ConfigReader::IsConfigValid() const

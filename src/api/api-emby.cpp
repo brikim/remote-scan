@@ -19,7 +19,7 @@ namespace remote_scan
    static constexpr std::string_view ID{"Id"};
 
    EmbyApi::EmbyApi(const ServerConfig& serverConfig)
-      : ApiBase(serverConfig, "EmbyApi", ANSII_CODE_EMBY)
+      : ApiBase(serverConfig, "EmbyApi", ANSI_CODE_EMBY)
       , client_(GetUrl())
    {
       constexpr time_t timeoutSec{5};

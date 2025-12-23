@@ -21,7 +21,7 @@ namespace remote_scan
    static constexpr std::string_view ATTR_TITLE{"title"};
 
    PlexApi::PlexApi(const ServerConfig& serverConfig)
-      : ApiBase(serverConfig, "PlexApi", ANSII_CODE_PLEX)
+      : ApiBase(serverConfig, "PlexApi", ANSI_CODE_PLEX)
       , client_(GetUrl())
    {
       constexpr time_t timeoutSec{5};

@@ -8,7 +8,7 @@ namespace remote_scan
       : name_(serverConfig.name)
       , url_(serverConfig.address)
       , apiKey_(serverConfig.apiKey)
-      , logHeader_(std::format("{}{}{}({})", ansiiCode, className, ANSII_CODE_LOG, name_))
+      , logHeader_(std::format("{}{}{}({})", ansiiCode, className, ANSI_CODE_LOG, name_))
    {
    }
 

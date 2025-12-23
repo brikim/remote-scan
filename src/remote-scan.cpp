@@ -4,6 +4,7 @@
 #include "logger/logger.h"
 #include "logger/log-utils.h"
 
+#include <cctype>
 #include <format>
 #include <ranges>
 
@@ -13,18 +14,6 @@ namespace remote_scan
       : configReader_(configReader)
       , apiManager_(configReader)
    {
-      const auto& config{configReader_->GetRemoteScanConfig()};
-      for (const auto& scan : config.scans)
-      {
-         auto& watcherPair{watchers_.emplace_back(std::make_pair(std::make_unique<efsw::FileWatcher>(),
-                                                                 std::make_unique<UpdateListener>([this, &scan](std::string_view path, std::string_view filename) { this->ProcessFileUpdate(scan.name, path, filename); })))};
-
-         // For eeach path in this scan add a watch
-         for (const auto& path : scan.paths)
-         {
-            watcherPair.first->addWatch(path, watcherPair.second.get(), true);
-         }
-      };
    }
 
    void RemoteScan::Run()
@@ -34,6 +23,20 @@ namespace remote_scan
          Logger::Instance().Info("Config file not valid shutting down");
          return;
       }
+
+      // Start up the watchers
+      const auto& config{configReader_->GetRemoteScanConfig()};
+      for (const auto& scan : config.scans)
+      {
+         auto& watcherPair{watchers_.emplace_back(std::make_pair(std::make_unique<efsw::FileWatcher>(),
+                                                                 std::make_unique<UpdateListener>([this, scanName = std::string(scan.name)](std::string_view path, std::string_view filename) { this->ProcessFileUpdate(scanName, path, filename); })))};
+
+         // For each path in this scan add a watch
+         for (const auto& path : scan.paths)
+         {
+            watcherPair.first->addWatch(path, watcherPair.second.get(), true);
+         }
+      };
 
       // Create the thread to monitor active scans
       monitorThread_ = std::make_unique<std::jthread>([this](std::stop_token stopToken) {
@@ -128,7 +131,7 @@ namespace remote_scan
       {
          for (auto& path : monitor.paths)
          {
-            Logger::Instance().Info(std::format("{} Monitor moved to target {} {}", GetAnsiiText(">>>", ANSII_MONITOR_PROCESSED), target, GetTag("folder", GetFolderName(path))));
+            Logger::Instance().Info(std::format("{} Monitor moved to target {} {}", GetAnsiText(">>>", ANSI_MONITOR_PROCESSED), target, GetTag("folder", GetFolderName(path))));
          }
       }
       else
@@ -139,21 +142,32 @@ namespace remote_scan
 
    void RemoteScan::Monitor(std::stop_token stopToken)
    {
-      while (stopToken.stop_requested() == false)
+      while (shutdown_.load() == false && stopToken.stop_requested() == false)
       {
+         bool shouldMonitorWait{false};
+         {
+            std::scoped_lock<std::mutex> scopedLock(monitorLock_);
+            shouldMonitorWait = activeMonitors_.empty();
+         }
+
          // If there are no active monitors go to sleep and wait to be signalled
-         if (activeMonitors_.size() == 0)
+         if (shouldMonitorWait)
          {
             Logger::Instance().Trace("Monitor thread going to sleep");
             std::unique_lock<std::mutex> lock(conditionLock_);
-            condition_.wait(lock, [this] { return runThread_; });
+            condition_.wait(lock, [&] { return runThread_.load() || stopToken.stop_requested(); });
+
+            if (stopToken.stop_requested())
+            {
+               continue;
+            }
          }
 
+         bool shouldMonitorSleep{false};
          if (auto currentTime{std::chrono::system_clock::now()};
              std::chrono::duration_cast<std::chrono::seconds>(currentTime - lastNotifyTime_).count() >= configReader_->GetRemoteScanConfig().secondsBetweenNotifies)
          {
-            // Hold the lock while the active monitors are being processed
-            std::scoped_lock scopedMonitorLock(monitorLock_);
+            std::scoped_lock<std::mutex> scopedLock(monitorLock_);
 
             // Loop through all the active monitors and check if it is time to notify
             for (auto iter{activeMonitors_.begin()}; iter != activeMonitors_.end(); ++iter)
@@ -170,15 +184,17 @@ namespace remote_scan
                   break;
                }
             }
+
+            shouldMonitorSleep = activeMonitors_.empty() == false;
          }
 
          // If active monitors are being processed sleep for the designated time
-         if (activeMonitors_.size() > 0)
+         if (shouldMonitorSleep)
          {
             std::this_thread::sleep_for(std::chrono::seconds(1));
          }
 
-         runThread_ = false;
+         runThread_.store(false);
       }
    }
 
@@ -219,7 +235,7 @@ namespace remote_scan
 
    void RemoteScan::LogMonitorAdded(std::string_view scanName, std::string_view path)
    {
-      Logger::Instance().Info(std::format("{} Scan moved to monitor {} {}", GetAnsiiText("-->", ANSII_MONITOR_ADDED), GetTag("name", scanName), GetTag("path", GetFolderName(path))));
+      Logger::Instance().Info(std::format("{} Scan moved to monitor {} {}", GetAnsiText("-->", ANSI_MONITOR_ADDED), GetTag("name", scanName), GetTag("path", GetFolderName(path))));
    }
 
    void RemoteScan::AddFileMonitor(std::string_view scanName, std::string_view path)
@@ -248,11 +264,18 @@ namespace remote_scan
 
          // Notify the monitor thread that there is work to do
          std::unique_lock<std::mutex> lock(conditionLock_);
-         runThread_ = true;
+         runThread_.store(true);
          condition_.notify_all();
 
          LogMonitorAdded(scanName, path);
       }
+   }
+
+   std::string RemoteScan::GetLowercase(std::string_view name)
+   {
+      std::string returnValue{name};
+      std::ranges::transform(returnValue, returnValue.begin(), [](unsigned char c) { return std::tolower(c); });
+      return returnValue;
    }
 
    bool RemoteScan::GetScanPathValid(std::string_view path)
@@ -270,7 +293,11 @@ namespace remote_scan
    bool RemoteScan::GetFileExtensionValid(std::string_view filename)
    {
       const auto& validFileExtensions{configReader_->GetValidFileExtensions()};
-      return validFileExtensions.empty() ? true : std::ranges::any_of(validFileExtensions, [filename](const auto& extension) { return filename.ends_with(extension); });
+
+      auto lowercaseFilename{GetLowercase(filename)};
+      return validFileExtensions.empty() ? true : std::ranges::any_of(validFileExtensions, [this, &lowercaseFilename](const auto& extension) {
+         return lowercaseFilename.ends_with(GetLowercase(extension));
+      });
    }
 
    void RemoteScan::ProcessFileUpdate(std::string_view scanName, std::string_view path, std::string_view filename)
@@ -286,5 +313,16 @@ namespace remote_scan
       Logger::Instance().Info("Shutting Down");
 
       shutdown_.store(true);
+
+      if (monitorThread_)
+      {
+         monitorThread_->request_stop();
+
+         // Notify the monitor thread for shutdown
+         std::unique_lock<std::mutex> lock(conditionLock_);
+         condition_.notify_all();
+
+         monitorThread_.reset();
+      }
    }
 }

@@ -37,6 +37,8 @@ namespace remote_scan
    private:
       void Monitor(std::stop_token stopToken);
 
+      std::string GetLowercase(std::string_view name);
+
       bool GetScanPathValid(std::string_view path);
       bool GetFileExtensionValid(std::string_view filename);
       std::string GetFolderName(std::string_view path);
@@ -59,9 +61,9 @@ namespace remote_scan
 
       std::chrono::system_clock::time_point lastNotifyTime_{std::chrono::system_clock::now()};
 
-      std::atomic<bool> shutdown_{false};
+      std::atomic_bool shutdown_{false};
+      std::atomic_bool runThread_{false};
 
-      bool runThread_{false};
       std::mutex conditionLock_;
       std::condition_variable condition_;
       std::unique_ptr<std::jthread> monitorThread_;

@@ -35,7 +35,7 @@ namespace remote_scan
       void ReadIndividualScanConfig(const nlohmann::json& jsonData);
       void ReadIgnoreFolder(const nlohmann::json& jsonData);
       void ReadValidExtension(const nlohmann::json& jsonData);
-      void ReadScanConfig(const nlohmann::json& jsonData);
+      bool ReadScanConfig(const nlohmann::json& jsonData);
 
       bool configValid_{false};
       ConfigData configData_;
