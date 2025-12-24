@@ -13,9 +13,6 @@ workspace "remotescan"
         language "C++"
         cppdialect "C++20" -- Specifies C++20
 
-        -- Specify Clang as the toolset for Visual Studio projects
-        toolset "clang"
-
         files { "src/**.cpp", "src/**.h", "external/pugixml/pugixml.cpp" } -- Includes all .cpp and .h files in the src directory
         includedirs { 
             "include",
@@ -34,8 +31,12 @@ workspace "remotescan"
             "efsw-static-debug"
             }
 
+        filter ("configurations:debug", "system:linux")
+            toolset "gcc"
+
         filter ("configurations:debug", "system:windows")
             defines { "_CRT_SECURE_NO_WARNINGS" }
+            toolset "clang"
 
         filter "configurations:release"
             defines { "NDEBUG" }
