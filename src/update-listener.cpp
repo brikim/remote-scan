@@ -1,6 +1,6 @@
 #include "update-listener.h"
 
-#include "src/logger/logger.h"
+#include "logger/logger.h"
 
 namespace remote_scan
 {

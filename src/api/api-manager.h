@@ -1,10 +1,10 @@
 #pragma once
 
-#include "src/api/api-base.h"
-#include "src/api/api-emby.h"
-#include "src/api/api-plex.h"
-#include "src/config-reader/config-reader.h"
-#include "src/types.h"
+#include "api/api-base.h"
+#include "api/api-emby.h"
+#include "api/api-plex.h"
+#include "config-reader/config-reader.h"
+#include "types.h"
 
 #include <memory>
 #include <vector>

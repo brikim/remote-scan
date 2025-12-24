@@ -1,7 +1,7 @@
 #include "log-apprise.h"
 
-#include "src/logger/logger.h"
-#include "src/types.h"
+#include "logger/logger.h"
+#include "types.h"
 
 #include <format>
 

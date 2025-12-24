@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/config-reader/config-reader-types.h"
+#include "config-reader/config-reader-types.h"
 
 #include <spdlog/spdlog.h>
 #include <string>

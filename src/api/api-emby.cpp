@@ -1,11 +1,11 @@
 #include "api-emby.h"
 
-#include "src/logger/logger.h"
-#include "src/logger/log-utils.h"
-#include "src/types.h"
+#include "logger/logger.h"
+#include "logger/log-utils.h"
+#include "types.h"
 
-#include <external/json/json.hpp>
 #include <format>
+#include <json/json.hpp>
 #include <ranges>
 
 namespace remote_scan

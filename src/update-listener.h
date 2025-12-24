@@ -1,4 +1,4 @@
-#include "src/config-reader/config-reader-types.h"
+#include "config-reader/config-reader-types.h"
 
 #include <efsw/efsw.hpp>
 

@@ -1,7 +1,7 @@
 #include "config-reader.h"
 
-#include "src/logger/logger.h"
-#include "src/logger/log-utils.h"
+#include "logger/logger.h"
+#include "logger/log-utils.h"
 
 #include <cstdlib>
 #include <format>

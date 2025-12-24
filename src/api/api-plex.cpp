@@ -1,11 +1,11 @@
 #include "api-plex.h"
 
-#include "src/logger/logger.h"
-#include "src/logger/log-utils.h"
-#include "src/types.h"
+#include "logger/logger.h"
+#include "logger/log-utils.h"
+#include "types.h"
 
 #include <format>
-#include <pugixml/pugixml.hpp>
+#include <pugixml/src/pugixml.hpp>
 #include <ranges>
 
 namespace remote_scan

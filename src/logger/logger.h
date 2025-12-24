@@ -1,7 +1,7 @@
 #pragma once
 
+#include "config-reader/config-reader-types.h"
 #include "log-apprise.h"
-#include "src/config-reader/config-reader-types.h"
 
 #include <memory>
 #include <spdlog/spdlog.h>

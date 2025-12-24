@@ -1,8 +1,8 @@
 #pragma once
 
-#include "src/config-reader/config-reader-types.h"
+#include "config-reader/config-reader-types.h"
 
-#include <external/json/json.hpp>
+#include <json/json.hpp>
 #include <span>
 #include <vector>
 

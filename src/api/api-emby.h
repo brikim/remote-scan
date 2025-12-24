@@ -1,7 +1,7 @@
 #pragma once
 
-#include "src/api/api-base.h"
-#include "src/config-reader/config-reader-types.h"
+#include "api/api-base.h"
+#include "config-reader/config-reader-types.h"
 
 #include <httplib/httplib.h>
 #include <list>
