@@ -15,7 +15,7 @@ namespace remote_scan
    {
       spdlog::set_pattern(LOG_PATTERN);
 
-#if defined(_DEBUG) || defined(DEBUG)
+#if defined(_DEBUG) || !defined(NDEBUG)
       spdlog::set_level(spdlog::level::trace);
 #endif
 

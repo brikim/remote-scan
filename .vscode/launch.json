@@ -8,7 +8,7 @@
       "name": "C/C++: Clang/LLDB Debug Active File",
       "type": "lldb", // Specifies the debugger type for CodeLLDB
       "request": "launch",
-      "program": "/home/brian/code/remote-scan/build/bin/debug/remotescan", // Path to your compiled executable
+      "program": "/home/brian/code/remote-scan/build/remotescan", // Path to your compiled executable
       "args": [],
       "stopAtEntry": false, // Set to true to stop at the beginning of main
       "cwd": "${fileDirname}",
