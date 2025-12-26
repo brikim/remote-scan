@@ -32,6 +32,7 @@ namespace remote_scan
          constexpr auto max_size{1048576 * 5};
          constexpr auto max_files{5};
          auto fileLogger = spdlog::rotating_logger_mt("rotating-file-logger", logPathFilename, max_size, max_files);
+         fileLogger->flush_on(spdlog::level::info);
          fileLogger->set_formatter(std::make_unique<AnsiiRemoveFormatter>());
          loggerVec_.emplace_back(fileLogger);
       }

@@ -22,8 +22,8 @@ namespace remote_scan
    void AnsiiRemoveFormatter::format(const spdlog::details::log_msg& msg, spdlog::memory_buf_t& dest)
    {
       // Create a new log message with the new string
-      auto newMsg = msg;
-      newMsg.payload = StripAsciiCharacters(msg.payload.data());
+      auto formattedMsg{StripAsciiCharacters(msg.payload.data())};
+      spdlog::details::log_msg newMsg(msg.time, msg.source, msg.logger_name, msg.level, formattedMsg);
 
       // Use the normal pattern formatter to create the log message with no ansii codes
       patternFormatter_.format(newMsg, dest);

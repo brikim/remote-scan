@@ -8,7 +8,7 @@ RUN echo "deb http://deb.debian.org/debian sid main" | tee -a /etc/apt/sources.l
 	apt upgrade -y && \
     apt install -y --no-install-recommends \
     build-essential \
-	gcc-14 g++-14 \
+	clang \
     cmake \
     && rm -rf /var/lib/apt/lists/*
 
@@ -18,6 +18,7 @@ WORKDIR /app
 COPY . /app
 
 # Configure and build the project
+ENV CXX=clang++
 RUN cmake -DCMAKE_BUILD_TYPE=Release . && \
     cmake --build . -j 4
 
@@ -26,6 +27,7 @@ FROM debian:trixie-slim AS runtime
 
 ENV TZ=America/Chicago
 ENV CONFIG_PATH='/config'
+ENV LOG_PATH='/logs'
 
 RUN apt update && \
 	apt upgrade -y && \
