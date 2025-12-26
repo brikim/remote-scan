@@ -43,17 +43,19 @@ namespace remote_scan
          this->Monitor(stopToken);
       });
 
-      // Start all the watchers
-      for (auto& watcherPair : watchers_)
-      {
-         watcherPair.first->watch();
-      }
-
       // Hold the main thread until shutdown is requested
       while (shutdown_.load() == false)
       {
          std::this_thread::sleep_for(std::chrono::seconds(1));
       }
+
+      Logger::Instance().Info("Removing watches");
+      for (auto& watcherPair : watchers_)
+      {
+         watcherPair.first.reset();
+      }
+
+      Logger::Instance().Info("Run has completed");
    }
 
    void RemoteScan::LogServerLibraryIssue(std::string_view serverType, const ScanLibraryConfig& library)
@@ -142,7 +144,7 @@ namespace remote_scan
 
    void RemoteScan::Monitor(std::stop_token stopToken)
    {
-      while (shutdown_.load() == false && stopToken.stop_requested() == false)
+      while (shutdown_.load() == false)
       {
          bool shouldMonitorWait{false};
          {
@@ -196,6 +198,8 @@ namespace remote_scan
 
          runThread_.store(false);
       }
+
+      Logger::Instance().Info("Exiting monitor thread");
    }
 
    std::string RemoteScan::GetFolderName(std::string_view path)
@@ -324,5 +328,7 @@ namespace remote_scan
 
          monitorThread_.reset();
       }
+
+      Logger::Instance().Info("Shutting Down Complete");
    }
 }
