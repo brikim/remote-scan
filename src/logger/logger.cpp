@@ -1,5 +1,6 @@
 #include "logger.h"
 
+#include "logger/ansii-formatter.h"
 #include "logger/ansii-remove-formatter.h"
 #include "logger/logger-types.h"
 #include "logger/log-utils.h"
@@ -15,7 +16,8 @@ namespace remote_scan
    Logger::Logger()
    {
       std::vector<spdlog::sink_ptr> sinks;
-      sinks.emplace_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+      auto& consoleSink{sinks.emplace_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>())};
+      consoleSink->set_formatter(std::make_unique<AnsiiFormatter>());
 
       // If the log path is defined create a rotating file logger
       if (const auto* logPath = std::getenv("LOG_PATH");
@@ -32,17 +34,10 @@ namespace remote_scan
 
       logger_ = std::make_shared<spdlog::logger>("remote-scan", sinks.begin(), sinks.end());
       logger_->flush_on(spdlog::level::info);
-      logger_->set_pattern(LOG_PATTERN);
 
 #if defined(_DEBUG) || !defined(NDEBUG)
       logger_->set_level(spdlog::level::trace);
 #endif
-   }
-
-   Logger& Logger::Instance()
-   {
-      static Logger instance;
-      return instance;
    }
 
    void Logger::InitApprise(const AppriseLoggingConfig& config)

@@ -22,6 +22,7 @@ target_sources(remotescan PRIVATE
 	src/api/api-manager.cpp
 	src/api/api-plex.cpp
 	src/config-reader/config-reader.cpp
+	src/logger/ansii-formatter.cpp
 	src/logger/ansii-remove-formatter.cpp
 	src/logger/log-apprise.cpp
 	src/logger/logger.cpp

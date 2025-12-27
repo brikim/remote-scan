@@ -14,7 +14,11 @@ namespace remote_scan
    {
    public:
       // Returns a static instance of the Logger class
-      static Logger& Instance();
+      static Logger& Instance()
+      {
+         static Logger instance;
+         return instance;
+      }
 
       void InitApprise(const AppriseLoggingConfig& config);
 
