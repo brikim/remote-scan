@@ -15,11 +15,17 @@
 
 namespace remote_scan
 {
+   struct ActiveMonitorPaths
+   {
+      std::string path;
+      std::string displayFolder;
+   };
+
    struct ActiveMonitor
    {
       std::string scanName;
       std::chrono::system_clock::time_point time;
-      std::vector<std::string> paths;
+      std::vector<ActiveMonitorPaths> paths;
    };
 
    class RemoteScan
@@ -42,9 +48,9 @@ namespace remote_scan
 
       bool GetScanPathValid(std::string_view path);
       bool GetFileExtensionValid(std::string_view filename);
-      std::string GetFolderName(std::string_view path);
+      std::string GetDisplayFolder(std::string_view path);
 
-      void LogMonitorAdded(std::string_view scanName, std::string_view path);
+      void LogMonitorAdded(std::string_view scanName, std::string_view displayFolder);
       void AddFileMonitor(std::string_view scanName, std::string_view path);
 
       void LogServerLibraryIssue(std::string_view serverType, const ScanLibraryConfig& library);
@@ -65,8 +71,11 @@ namespace remote_scan
       std::atomic_bool shutdownRemotescan_{false};
       std::atomic_bool runMonitor_{false};
 
-      std::mutex cvLock_;
-      std::condition_variable cv_;
+      std::mutex runCvLock_;
+      std::condition_variable runCv_;
+
+      std::mutex monitorCvLock_;
+      std::condition_variable monitorCv_;
       std::unique_ptr<std::jthread> monitorThread_;
    };
 }

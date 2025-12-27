@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <spdlog/spdlog.h>
+#include <string>
 #include <vector>
 
 namespace remote_scan

@@ -28,8 +28,8 @@ namespace remote_scan
       // Notify the monitor thread for shutdown
       Logger::Instance().Info("Requesting monitor thread to exit");
       {
-         std::unique_lock<std::mutex> cvUniqueLock(cvLock_);
-         cv_.notify_all();
+         std::unique_lock<std::mutex> cvUniqueLock(monitorCvLock_);
+         monitorCv_.notify_all();
       }
 
       // Wait for the thread to complete
@@ -77,10 +77,8 @@ namespace remote_scan
       });
 
       // Hold the main thread until shutdown is requested
-      while (!shutdownRemotescan_)
-      {
-         std::this_thread::sleep_for(std::chrono::seconds(1));
-      }
+      std::unique_lock<std::mutex> cvUniqueLock(runCvLock_);
+      runCv_.wait(cvUniqueLock, [this] { return shutdownRemotescan_.load(); });
 
       // Clean up all threads before shutting down
       CleanupShutdown();
@@ -167,7 +165,7 @@ namespace remote_scan
       {
          for (auto& path : monitor.paths)
          {
-            Logger::Instance().Info(std::format("{} Monitor moved to target {} {}", GetAnsiText(">>>", ANSI_MONITOR_PROCESSED), target, GetTag("folder", GetFolderName(path))));
+            Logger::Instance().Info(std::format("{} Monitor moved to target {} {}", GetAnsiText(">>>", ANSI_MONITOR_PROCESSED), target, GetTag("folder", path.displayFolder)));
          }
       }
       else
@@ -178,7 +176,7 @@ namespace remote_scan
 
    void RemoteScan::Monitor(std::stop_token stopToken)
    {
-      while (!shutdownRemotescan_)
+      while (!shutdownRemotescan_.load())
       {
          bool shouldMonitorWait{false};
          {
@@ -191,8 +189,8 @@ namespace remote_scan
          {
             Logger::Instance().Trace("Monitor thread going to sleep");
 
-            std::unique_lock<std::mutex> cvUniqueLock(cvLock_);
-            cv_.wait(cvUniqueLock, [this] { return (runMonitor_ || shutdownRemotescan_); });
+            std::unique_lock<std::mutex> cvUniqueLock(monitorCvLock_);
+            monitorCv_.wait(cvUniqueLock, [this] { return (runMonitor_.load() || shutdownRemotescan_.load()); });
 
             Logger::Instance().Trace("Monitor thread waking up");
          }
@@ -228,13 +226,13 @@ namespace remote_scan
             std::this_thread::sleep_for(std::chrono::seconds(1));
          }
 
-         runMonitor_ = false;
+         runMonitor_.store(false);
       }
 
       Logger::Instance().Info("Monitor thread has exited");
    }
 
-   std::string RemoteScan::GetFolderName(std::string_view path)
+   std::string RemoteScan::GetDisplayFolder(std::string_view path)
    {
       // For now based on OS support the correct directory separator
 #ifdef _WIN32
@@ -252,7 +250,7 @@ namespace remote_scan
       {
          auto subStrStart{startIndex + 1};
          auto subStrCount{path.size() - subStrStart - endIndexModifier};
-         auto returnFolder{path.substr(subStrStart, subStrCount)};
+         std::string returnFolder{path.substr(subStrStart, subStrCount)};
 
          if (returnFolder.length() < 10 && returnFolder.find("Season") != std::string::npos)
          {
@@ -264,14 +262,14 @@ namespace remote_scan
                returnFolder = path.substr(subStrStart, subStrCount);
             }
          }
-         return std::string(returnFolder);
+         return returnFolder;
       }
       return std::string(path);
    }
 
-   void RemoteScan::LogMonitorAdded(std::string_view scanName, std::string_view path)
+   void RemoteScan::LogMonitorAdded(std::string_view scanName, std::string_view displayFolder)
    {
-      Logger::Instance().Info(std::format("{} Scan moved to monitor {} {}", GetAnsiText("-->", ANSI_MONITOR_ADDED), GetTag("name", scanName), GetTag("path", GetFolderName(path))));
+      Logger::Instance().Info(std::format("{} Scan moved to monitor {} {}", GetAnsiText("-->", ANSI_MONITOR_ADDED), GetTag("name", scanName), GetTag("folder", displayFolder)));
    }
 
    void RemoteScan::AddFileMonitor(std::string_view scanName, std::string_view path)
@@ -282,11 +280,11 @@ namespace remote_scan
       if (monitorIter != activeMonitors_.end())
       {
          auto& currentMonitor{*monitorIter};
-         auto pathIter{std::ranges::find_if(currentMonitor.paths, [path](auto& monitorPath) { return monitorPath == path; })};
+         auto pathIter{std::ranges::find_if(currentMonitor.paths, [path](auto& monitorPath) { return monitorPath.path == path; })};
          if (pathIter == currentMonitor.paths.end())
          {
-            currentMonitor.paths.emplace_back(path);
-            LogMonitorAdded(scanName, path);
+            auto& paths{currentMonitor.paths.emplace_back(std::string(path), GetDisplayFolder(path))};
+            LogMonitorAdded(scanName, paths.displayFolder);
          }
          (*monitorIter).time = std::chrono::system_clock::now();
          Logger::Instance().Trace(std::format("Found existing monitor {} updating time", currentMonitor.scanName));
@@ -296,15 +294,15 @@ namespace remote_scan
          auto& newMonitor{activeMonitors_.emplace_back()};
          newMonitor.scanName = scanName;
          newMonitor.time = std::chrono::system_clock::now();
-         newMonitor.paths.emplace_back(path);
+         auto& paths{newMonitor.paths.emplace_back(std::string(path), GetDisplayFolder(path))};
 
          // Notify the monitor thread that there is work to do
          {
-            std::unique_lock<std::mutex> cvUniqueLock(cvLock_);
-            runMonitor_ = true;
-            cv_.notify_all();
+            std::unique_lock<std::mutex> cvUniqueLock(monitorCvLock_);
+            runMonitor_.store(true);
+            monitorCv_.notify_all();
          }
-         LogMonitorAdded(scanName, path);
+         LogMonitorAdded(scanName, paths.displayFolder);
       }
    }
 
@@ -349,6 +347,8 @@ namespace remote_scan
    {
       Logger::Instance().Info("Shutdown request received");
 
-      shutdownRemotescan_ = true;
+      std::unique_lock<std::mutex> cvUniqueLock(runCvLock_);
+      shutdownRemotescan_.store(true);
+      runCv_.notify_all();
    }
 }
