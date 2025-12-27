@@ -54,7 +54,7 @@ namespace remote_scan
          for (const auto& path : scan.paths)
          {
             std::filesystem::path fsPath(path);
-            if (std::filesystem::exists(fsPath)) 
+            if (std::filesystem::exists(fsPath))
             {
                watcherPair.first->addWatch(path, watcherPair.second.get(), true);
             }
@@ -114,7 +114,7 @@ namespace remote_scan
             auto libraryId{api->GetLibraryId(library.library)};
             if (libraryId.has_value())
             {
-               //api->SetLibraryScan(libraryId.value());
+               api->SetLibraryScan(libraryId.value());
                return true;
             }
             else

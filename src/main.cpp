@@ -9,7 +9,7 @@
 #include <memory>
 
 remote_scan::RemoteScan* GLOBAL_REMOTE_SCAN{nullptr};
-std::atomic<bool> SHUTDOWN_REQUESTED(false);
+
 void signal_handler(int signal_num)
 {
    if (signal_num == SIGINT || signal_num == SIGTERM)

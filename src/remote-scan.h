@@ -37,7 +37,7 @@ namespace remote_scan
    private:
       void Monitor(std::stop_token stopToken);
       void CleanupShutdown();
-      
+
       std::string GetLowercase(std::string_view name);
 
       bool GetScanPathValid(std::string_view path);
