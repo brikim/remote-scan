@@ -127,6 +127,10 @@ namespace remote_scan
             LogServerNotAvailable(GetFormattedApiName(type), library);
          }
       }
+      else
+      {
+         Logger::Instance().Warning(std::format("Notify Server called but no valid API found for {}({})", GetFormattedApiName(type), library.server));
+      }
       return false;
    }
 
