@@ -94,8 +94,8 @@ A configuration file is required to use Remote-Scan. Create a config.conf file i
                 ],
 
                 "paths": [
-                   { "container_path": "/media/Path1" },
-                   { "container_path": "/media/Path2" }
+                   { "path": "/media/Path1" },
+                   { "path": "/media/Path2" }
                 ]
             },
             {   
@@ -116,8 +116,8 @@ A configuration file is required to use Remote-Scan. Create a config.conf file i
                 ],
                 
                 "paths": [
-                   { "container_path": "/media/Path1" },
-                   { "container_path": "/media/Path2" }
+                   { "path": "/media/Path1" },
+                   { "path": "/media/Path2" }
                 ]
             }
         ],
