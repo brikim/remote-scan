@@ -22,7 +22,7 @@ namespace remote_scan
    {
       std::ranges::for_each(serverConfigs, [this](const auto& server) {
          auto plexApi{std::make_unique<PlexApi>(server)};
-         plexApi->GetValid() ? LogServerConnectionSuccess(GetFormattedPlex(), plexApi.get()) : LogServerConnectionError(plexApi.get());
+         plexApi->GetValid() ? LogServerConnectionSuccess(utils::GetFormattedPlex(), plexApi.get()) : LogServerConnectionError(plexApi.get());
          plexApis_.emplace_back(std::move(plexApi));
       });
    }
@@ -31,7 +31,7 @@ namespace remote_scan
    {
       std::ranges::for_each(serverConfigs, [this](const auto& server) {
          auto embyApi{std::make_unique<EmbyApi>(server)};
-         embyApi->GetValid() ? LogServerConnectionSuccess(GetFormattedEmby(), embyApi.get()) : LogServerConnectionError(embyApi.get());
+         embyApi->GetValid() ? LogServerConnectionSuccess(utils::GetFormattedEmby(), embyApi.get()) : LogServerConnectionError(embyApi.get());
          embyApis_.emplace_back(std::move(embyApi));
       });
    }
@@ -52,10 +52,10 @@ namespace remote_scan
    void ApiManager::LogServerConnectionError(ApiBase* api)
    {
       Logger::Instance().Warning(std::format("{}({}) server not available. Is this correct {} {}",
-                                             GetFormattedEmby(),
+                                             utils::GetFormattedEmby(),
                                              api->GetName(),
-                                             GetTag("url", api->GetUrl()),
-                                             GetTag("api_key", api->GetApiKey())));
+                                             utils::GetTag("url", api->GetUrl()),
+                                             utils::GetTag("api_key", api->GetApiKey())));
    }
 
    PlexApi* ApiManager::GetPlexApi(std::string_view name) const

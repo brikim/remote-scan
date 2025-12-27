@@ -60,7 +60,7 @@ namespace remote_scan
             }
             else
             {
-               Logger::Instance().Warning(std::format("{} contains {} that does not exist", GetTag("scan", scan.name), GetTag("path", path)));
+               Logger::Instance().Warning(std::format("{} contains {} that does not exist", utils::GetTag("scan", scan.name), utils::GetTag("path", path)));
             }
          }
       };
@@ -91,7 +91,7 @@ namespace remote_scan
       Logger::Instance().Warning(std::format("{}({}) {} not found ... Skipped notify",
                                              serverType,
                                              library.server,
-                                             GetTag("library", library.library)));
+                                             utils::GetTag("library", library.library)));
    }
 
    void RemoteScan::LogServerNotAvailable(std::string_view serverType, const ScanLibraryConfig& library)
@@ -99,7 +99,7 @@ namespace remote_scan
       Logger::Instance().Warning(std::format("{}({}) server not available ... Skipped notify for {}",
                                              serverType,
                                              library.server,
-                                             GetTag("library", library.library)));
+                                             utils::GetTag("library", library.library)));
    }
 
    bool RemoteScan::NotifyServer(ApiType type, const ScanLibraryConfig& library)
@@ -117,17 +117,17 @@ namespace remote_scan
             }
             else
             {
-               LogServerLibraryIssue(GetFormattedApiName(type), library);
+               LogServerLibraryIssue(utils::GetFormattedApiName(type), library);
             }
          }
          else
          {
-            LogServerNotAvailable(GetFormattedApiName(type), library);
+            LogServerNotAvailable(utils::GetFormattedApiName(type), library);
          }
       }
       else
       {
-         Logger::Instance().Warning(std::format("Notify Server called but no valid API found for {}({})", GetFormattedApiName(type), library.server));
+         Logger::Instance().Warning(std::format("Notify Server called but no valid API found for {}({})", utils::GetFormattedApiName(type), library.server));
       }
       return false;
    }
@@ -149,7 +149,7 @@ namespace remote_scan
       {
          if (NotifyServer(ApiType::PLEX, plexLibrary))
          {
-            target = BuildTargetString(target, GetFormattedApiName(ApiType::PLEX), plexLibrary.server);
+            target = utils::BuildTargetString(target, utils::GetFormattedApiName(ApiType::PLEX), plexLibrary.server);
          }
       }
 
@@ -157,7 +157,7 @@ namespace remote_scan
       {
          if (NotifyServer(ApiType::EMBY, embyLibrary))
          {
-            target = BuildTargetString(target, GetFormattedApiName(ApiType::EMBY), embyLibrary.server);
+            target = utils::BuildTargetString(target, utils::GetFormattedApiName(ApiType::EMBY), embyLibrary.server);
          }
       }
 
@@ -165,7 +165,7 @@ namespace remote_scan
       {
          for (auto& path : monitor.paths)
          {
-            Logger::Instance().Info(std::format("{} Monitor moved to target {} {}", GetAnsiText(">>>", ANSI_MONITOR_PROCESSED), target, GetTag("folder", path.displayFolder)));
+            Logger::Instance().Info(std::format("{} Monitor moved to target {} {}", utils::GetAnsiText(">>>", utils::ANSI_MONITOR_PROCESSED), target, utils::GetTag("folder", path.displayFolder)));
          }
       }
       else
@@ -269,7 +269,7 @@ namespace remote_scan
 
    void RemoteScan::LogMonitorAdded(std::string_view scanName, std::string_view displayFolder)
    {
-      Logger::Instance().Info(std::format("{} Scan moved to monitor {} {}", GetAnsiText("-->", ANSI_MONITOR_ADDED), GetTag("name", scanName), GetTag("folder", displayFolder)));
+      Logger::Instance().Info(std::format("{} Scan moved to monitor {} {}", utils::GetAnsiText("-->", utils::ANSI_MONITOR_ADDED), utils::GetTag("name", scanName), utils::GetTag("folder", displayFolder)));
    }
 
    void RemoteScan::AddFileMonitor(std::string_view scanName, std::string_view path)

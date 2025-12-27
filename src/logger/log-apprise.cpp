@@ -24,7 +24,7 @@ namespace remote_scan
       if (auto res = client_.Post(path, params);
           res.error() != httplib::Error::Success || res.value().status >= VALID_HTTP_RESPONSE_MAX)
       {
-         Logger::Instance().Info("Apprise failed to log message!");
+         Logger::Instance().Warning("Apprise failed to log message!");
       }
    }
 }

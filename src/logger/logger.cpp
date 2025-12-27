@@ -1,7 +1,8 @@
 #include "logger.h"
 
-#include "ansii-remove-formatter.h"
-#include "logger-types.h"
+#include "logger/ansii-remove-formatter.h"
+#include "logger/logger-types.h"
+#include "logger/log-utils.h"
 
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -74,7 +75,7 @@ namespace remote_scan
 
       if (logApprise_)
       {
-         logApprise_->Send(std::format("WARNING: {}", AnsiiRemoveFormatter::StripAsciiCharacters(msg)));
+         logApprise_->Send(std::format("WARNING: {}", utils::StripAsciiCharacters(msg)));
       }
    }
 
@@ -86,7 +87,7 @@ namespace remote_scan
 
       if (logApprise_)
       {
-         logApprise_->Send(std::format("ERROR: {}", AnsiiRemoveFormatter::StripAsciiCharacters(msg)));
+         logApprise_->Send(std::format("ERROR: {}", utils::StripAsciiCharacters(msg)));
       }
    }
 }

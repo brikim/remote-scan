@@ -5,14 +5,18 @@ project(remotescan)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 20)
 
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+add_subdirectory(external)
 
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/wd4129>")
+add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/MP>")
 
-add_subdirectory(external)
+add_compile_definitions("$<$<CONFIG:Debug>:DEBUG>")
 
-set(REMOTESCAN_CPP_SOURCE
+add_executable(remotescan)
+
+target_sources(remotescan PRIVATE
 	src/api/api-base.cpp
 	src/api/api-emby.cpp
 	src/api/api-manager.cpp
@@ -26,8 +30,6 @@ set(REMOTESCAN_CPP_SOURCE
 	src/update-listener.cpp
 )
 
-add_executable(remotescan ${REMOTESCAN_CPP_SOURCE})
-
 target_include_directories(remotescan PRIVATE include
 	external
 	src
@@ -38,5 +40,3 @@ target_link_libraries(remotescan PRIVATE
 	efsw-static
 	pugixml-static
 )
-
-add_compile_definitions("$<$<CONFIG:Debug>:DEBUG>")

@@ -91,10 +91,10 @@ namespace remote_scan
              || serverConfig.contains(API_KEY) == false)
          {
             Logger::Instance().Error(std::format("{} server config invalid server_name:{} url:{} api_key:{}",
-                                                 GetFormattedPlex(),
-                                                 serverConfig[SERVER_NAME].is_null() ? "ERROR" : serverConfig[SERVER_NAME].get<std::string>(),
-                                                 serverConfig[URL].is_null() ? "ERROR" : serverConfig[URL].get<std::string>(),
-                                                 serverConfig[API_KEY].is_null() ? "ERROR" : serverConfig[API_KEY].get<std::string>()));
+                                                 utils::GetFormattedPlex(),
+                                                 serverConfig.contains(SERVER_NAME) ? serverConfig[SERVER_NAME].get<std::string>() : "ERROR",
+                                                 serverConfig.contains(URL) ? serverConfig[URL].get<std::string>() : "ERROR",
+                                                 serverConfig.contains(API_KEY) ? serverConfig[API_KEY].get<std::string>() : "ERROR"));
             break;
          }
 

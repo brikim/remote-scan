@@ -21,7 +21,7 @@ namespace remote_scan
    static constexpr std::string_view ATTR_TITLE{"title"};
 
    PlexApi::PlexApi(const ServerConfig& serverConfig)
-      : ApiBase(serverConfig, "PlexApi", ANSI_CODE_PLEX)
+      : ApiBase(serverConfig, "PlexApi", utils::ANSI_CODE_PLEX)
       , client_(GetUrl())
    {
       constexpr time_t timeoutSec{5};
@@ -97,7 +97,9 @@ namespace remote_scan
       {
          Logger::Instance().Warning(std::format("{} - Library Scan {}",
                                                 GetLogHeader(),
-                                                GetTag("error", res.error() != httplib::Error::Success ? std::to_string(static_cast<int>(res.error())) : std::format("{} - {}", res.value().reason, res.value().body))
+                                                utils::GetTag("error", res.error() != httplib::Error::Success
+                                                              ? std::to_string(static_cast<int>(res.error()))
+                                                              : std::format("{} - {}", res.value().reason, res.value().body))
          ));
       }
    }

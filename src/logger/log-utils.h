@@ -1,26 +1,29 @@
+#pragma once
+
 #include "types.h"
 
 #include <format>
+#include <regex>
 #include <string>
 
-namespace remote_scan
+namespace remote_scan::utils
 {
    constexpr const char* const ANSI_CODE_START{"\33[38;5;"};
    constexpr const char* const ANSI_CODE_END{"m"};
 
-   const std::string ANSI_CODE_LOG{std::format("{}15{}", ANSI_CODE_START, ANSI_CODE_END)};
-   const std::string ANSI_CODE_TAG{std::format("{}37{}", ANSI_CODE_START, ANSI_CODE_END)};
-   const std::string ANSI_CODE_PLEX{std::format("{}220{}", ANSI_CODE_START, ANSI_CODE_END)};
-   const std::string ANSI_CODE_EMBY{std::format("{}77{}", ANSI_CODE_START, ANSI_CODE_END)};
-   const std::string ANSI_CODE_JELLYFIN{std::format("{}134{}", ANSI_CODE_START, ANSI_CODE_END)};
+   inline const std::string ANSI_CODE_LOG{std::format("{}15{}", ANSI_CODE_START, ANSI_CODE_END)};
+   inline const std::string ANSI_CODE_TAG{std::format("{}37{}", ANSI_CODE_START, ANSI_CODE_END)};
+   inline const std::string ANSI_CODE_PLEX{std::format("{}220{}", ANSI_CODE_START, ANSI_CODE_END)};
+   inline const std::string ANSI_CODE_EMBY{std::format("{}77{}", ANSI_CODE_START, ANSI_CODE_END)};
+   inline const std::string ANSI_CODE_JELLYFIN{std::format("{}134{}", ANSI_CODE_START, ANSI_CODE_END)};
 
-   const std::string ANSI_MONITOR_ADDED{std::format("{}33{}", ANSI_CODE_START, ANSI_CODE_END)};
-   const std::string ANSI_MONITOR_PROCESSED{std::format("{}34{}", ANSI_CODE_START, ANSI_CODE_END)};
+   inline const std::string ANSI_MONITOR_ADDED{std::format("{}33{}", ANSI_CODE_START, ANSI_CODE_END)};
+   inline const std::string ANSI_MONITOR_PROCESSED{std::format("{}34{}", ANSI_CODE_START, ANSI_CODE_END)};
 
-   const std::string ANSI_FORMATTED_UNKNOWN("Unknown Server");
-   const std::string ANSI_FORMATTED_PLEX(std::format("{}Plex{}", ANSI_CODE_PLEX, ANSI_CODE_LOG));
-   const std::string ANSI_FORMATTED_EMBY(std::format("{}Emby{}", ANSI_CODE_EMBY, ANSI_CODE_LOG));
-   const std::string ANSI_FORMATTED_JELLYFIN(std::format("{}Jellyfin{}", ANSI_CODE_JELLYFIN, ANSI_CODE_LOG));
+   inline const std::string ANSI_FORMATTED_UNKNOWN("Unknown Server");
+   inline const std::string ANSI_FORMATTED_PLEX(std::format("{}Plex{}", ANSI_CODE_PLEX, ANSI_CODE_LOG));
+   inline const std::string ANSI_FORMATTED_EMBY(std::format("{}Emby{}", ANSI_CODE_EMBY, ANSI_CODE_LOG));
+   inline const std::string ANSI_FORMATTED_JELLYFIN(std::format("{}Jellyfin{}", ANSI_CODE_JELLYFIN, ANSI_CODE_LOG));
 
    inline std::string GetTag(std::string_view tag, std::string_view value)
    {
@@ -66,11 +69,22 @@ namespace remote_scan
    {
       if (currentTarget.empty())
       {
-         return targetInstance.empty() ? std::string(newTarget) : std::format("{}({})", newTarget, targetInstance);
+         return targetInstance.empty()
+            ? std::string(newTarget)
+            : std::format("{}({})", newTarget, targetInstance);
       }
       else
       {
-         return targetInstance.empty() ? std::format("{},{}", currentTarget, newTarget) : std::format("{},{}({})", currentTarget, newTarget, targetInstance);
+         return targetInstance.empty()
+            ? std::format("{},{}", currentTarget, newTarget)
+            : std::format("{},{}({})", currentTarget, newTarget, targetInstance);
       }
+   }
+
+   inline std::string StripAsciiCharacters(const std::string& data)
+   {
+      // Strip ansii codes from the log msg
+      const std::regex ansii("\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])");
+      return std::regex_replace(data, ansii, "");
    }
 }
