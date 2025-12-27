@@ -11,6 +11,7 @@ namespace remote_scan::utils
    constexpr const char* const ANSI_CODE_START{"\33[38;5;"};
    constexpr const char* const ANSI_CODE_END{"m"};
 
+   inline const std::string ANSI_CODE_LOG_HEADER{std::format("{}7{}", ANSI_CODE_START, ANSI_CODE_END)};
    inline const std::string ANSI_CODE_LOG{std::format("{}15{}", ANSI_CODE_START, ANSI_CODE_END)};
    inline const std::string ANSI_CODE_TAG{std::format("{}37{}", ANSI_CODE_START, ANSI_CODE_END)};
    inline const std::string ANSI_CODE_PLEX{std::format("{}220{}", ANSI_CODE_START, ANSI_CODE_END)};

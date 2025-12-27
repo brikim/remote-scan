@@ -27,7 +27,7 @@ namespace remote_scan
       Logger();
       virtual ~Logger() = default;
 
-      std::vector<std::shared_ptr<spdlog::logger>> loggerVec_;
+      std::shared_ptr<spdlog::logger> logger_;
       std::unique_ptr<LogApprise> logApprise_;
    };
 }

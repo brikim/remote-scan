@@ -27,7 +27,7 @@ namespace remote_scan
             }
             break;
          default:
-            Logger::Instance().Error(std::format("Recieved an unknown file action {} for file {} and directory {}", static_cast<int>(action), filename, dir));
+            Logger::Instance().Warning(std::format("Recieved an unknown file action {} for file {} and directory {}", static_cast<int>(action), filename, dir));
       }
    }
 };

@@ -14,14 +14,8 @@ namespace remote_scan
 {
    Logger::Logger()
    {
-      spdlog::set_pattern(LOG_PATTERN);
-
-#if defined(_DEBUG) || !defined(NDEBUG)
-      spdlog::set_level(spdlog::level::trace);
-#endif
-
-      // Create the console logger
-      loggerVec_.emplace_back(spdlog::stdout_color_mt("console"));
+      std::vector<spdlog::sink_ptr> sinks;
+      sinks.emplace_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 
       // If the log path is defined create a rotating file logger
       if (const auto* logPath = std::getenv("LOG_PATH");
@@ -30,13 +24,19 @@ namespace remote_scan
          std::string logPathFilename = logPath;
          logPathFilename.append("/remote-scan.log");
 
-         constexpr auto max_size{1048576 * 5};
-         constexpr auto max_files{5};
-         auto fileLogger = spdlog::rotating_logger_mt("rotating-file-logger", logPathFilename, max_size, max_files);
-         fileLogger->flush_on(spdlog::level::info);
-         fileLogger->set_formatter(std::make_unique<AnsiiRemoveFormatter>());
-         loggerVec_.emplace_back(fileLogger);
+         constexpr size_t max_size{1048576 * 5};
+         constexpr size_t max_files{5};
+         auto& fileSink{sinks.emplace_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logPathFilename, max_size, max_files))};
+         fileSink->set_formatter(std::make_unique<AnsiiRemoveFormatter>());
       }
+
+      logger_ = std::make_shared<spdlog::logger>("remote-scan", sinks.begin(), sinks.end());
+      logger_->flush_on(spdlog::level::info);
+      logger_->set_pattern(LOG_PATTERN);
+
+#if defined(_DEBUG) || !defined(NDEBUG)
+      logger_->set_level(spdlog::level::trace);
+#endif
    }
 
    Logger& Logger::Instance()
@@ -55,23 +55,17 @@ namespace remote_scan
 
    void Logger::Trace(const std::string& msg)
    {
-      std::ranges::for_each(loggerVec_, [&msg](auto& logger) {
-         logger->trace(msg);
-      });
+      logger_->trace(msg);
    }
 
    void Logger::Info(const std::string& msg)
    {
-      std::ranges::for_each(loggerVec_, [&msg](auto& logger) {
-         logger->info(msg);
-      });
+      logger_->info(msg);
    }
 
    void Logger::Warning(const std::string& msg)
    {
-      std::ranges::for_each(loggerVec_, [&msg](auto& logger) {
-         logger->warn(msg);
-      });
+      logger_->warn(msg);
 
       if (logApprise_)
       {
@@ -81,9 +75,7 @@ namespace remote_scan
 
    void Logger::Error(const std::string& msg)
    {
-      std::ranges::for_each(loggerVec_, [&msg](auto& logger) {
-         logger->error(msg);
-      });
+      logger_->error(msg);
 
       if (logApprise_)
       {
