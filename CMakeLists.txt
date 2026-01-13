@@ -1,43 +1,101 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.25...3.30)
 
-project(remotescan)
+# 1. SILENCE DEPRECATION WARNINGS (Must be before project())
+set(CMAKE_POLICY_DEFAULT_CMP0000 NEW)
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+project(remote-scan LANGUAGES CXX)
+
+# 2. GLOBAL SETTINGS
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-add_subdirectory(external)
+# 3. IPO/LTO SUPPORT CHECK
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
 
-add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
-add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
-add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/wd4129>")
-add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/MP>")
+# 4. DEPENDENCIES (FetchContent)
+include(FetchContent)
+include(Dependencies.cmake)
 
-add_compile_definitions("$<$<CONFIG:Debug>:DEBUG>")
+FetchContent_Declare(warp     GIT_REPOSITORY ${WARP_REPO}    GIT_TAG ${WARP_VERSION})
+FetchContent_Declare(glaze    GIT_REPOSITORY ${GLAZE_REPO}   GIT_TAG ${GLAZE_VERSION})
+FetchContent_Declare(httplib  GIT_REPOSITORY ${HTTPLIB_REPO} GIT_TAG ${HTTPLIB_VERSION})
+FetchContent_Declare(pugixml  GIT_REPOSITORY ${PUGIXML_REPO} GIT_TAG ${PUGIXML_VERSION})
+FetchContent_Declare(efsw     GIT_REPOSITORY ${EFSW_REPO}    GIT_TAG ${EFSW_VERSION})
 
-add_executable(remotescan)
+set(HTTPLIB_COMPILE OFF CACHE BOOL "" FORCE)
+set(PUGIXML_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(SPDLOG_MSVC_RUNTIME_LIBRARY "${CMAKE_MSVC_RUNTIME_LIBRARY}" CACHE STRING "" FORCE)
 
-target_sources(remotescan PRIVATE
-	src/api/api-base.cpp
+FetchContent_MakeAvailable(warp glaze httplib pugixml efsw)
+
+set(REMOTESCAN_SOURCES
+    src/api/api-base.cpp
 	src/api/api-emby.cpp
 	src/api/api-manager.cpp
 	src/api/api-plex.cpp
 	src/config-reader/config-reader.cpp
-	src/logger/ansii-formatter.cpp
-	src/logger/ansii-remove-formatter.cpp
-	src/logger/log-apprise.cpp
-	src/logger/logger.cpp
 	src/main.cpp
 	src/remote-scan.cpp
 	src/update-listener.cpp
 )
 
-target_include_directories(remotescan PRIVATE include
-	external
-	src
-	external/efsw/include
+# 6. CREATE THE TARGET (Only call this ONCE)
+add_executable(remote-scan ${REMOTESCAN_SOURCES})
+
+# 7. APPLY TARGET PROPERTIES (Must be AFTER add_executable)
+if(ipo_supported)
+    set_property(TARGET remote-scan PROPERTY 
+        INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE
+        INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL TRUE
+    )
+endif()
+
+target_compile_options(remote-scan PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/utf-8 /MP>
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
 )
 
-target_link_libraries(remotescan PRIVATE
-	efsw-static
-	pugixml-static
+# 8. PLATFORM SPECIFIC (UNIX/SSL)
+if(UNIX)
+    target_link_options(remote-scan PRIVATE 
+        "$<$<CONFIG:Release>:-s>"
+        -static-libstdc++ 
+        -static-libgcc
+    )
+    find_package(OpenSSL REQUIRED)
+    target_link_libraries(remote-scan PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+    target_compile_definitions(remote-scan PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
+else()
+    # Apply MSVC Link-Time Code Generation (The Windows version of LTO)
+    target_link_options(remote-scan PRIVATE $<$<CONFIG:Release>:/LTCG>)
+endif()
+
+# 9. PRECOMPILED HEADERS
+target_precompile_headers(remote-scan PRIVATE
+    <format>
+    <string>
+    <vector>
+    <memory>
+    <chrono>
+    <iostream>
+    <string_view>
+
+    # Third-Party
+    <httplib.h>
+    <glaze/glaze.hpp>
+    <pugixml.hpp>
+)
+
+# 10. INCLUDES & LINKING
+target_include_directories(remote-scan PRIVATE include src)
+
+target_link_libraries(remote-scan PRIVATE
+    warp::warp
+    pugixml::pugixml
+    glaze::glaze
+    httplib::httplib
+    efsw
 )

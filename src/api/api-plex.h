@@ -3,7 +3,8 @@
 #include "api/api-base.h"
 #include "config-reader/config-reader-types.h"
 
-#include <httplib/httplib.h>
+#include <httplib.h>
+
 #include <list>
 #include <string>
 
@@ -22,8 +23,10 @@ namespace remote_scan
       void SetLibraryScan(std::string_view libraryId) override;
 
    private:
-      std::string BuildApiPath(std::string_view path);
+      std::string_view GetApiBase() const override;
+      std::string_view GetApiTokenName() const override;
 
       httplib::Client client_;
+      httplib::Headers headers_;
    };
 }

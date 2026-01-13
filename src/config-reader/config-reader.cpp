@@ -1,278 +1,51 @@
 #include "config-reader.h"
 
-#include "logger/logger.h"
-#include "logger/log-utils.h"
+#include <warp/log.h>
+#include <warp/log-utils.h>
 
 #include <cstdlib>
+#include <filesystem>
 #include <format>
 #include <fstream>
 
 namespace remote_scan
 {
-   constexpr const std::string_view PLEX{"plex"};
-   constexpr const std::string_view EMBY{"emby"};
-   constexpr const std::string_view JELLYFIN{"jellyfin"};
-   constexpr const std::string_view SERVER_NAME{"server_name"};
-   constexpr const std::string_view URL{"url"};
-   constexpr const std::string_view API_KEY{"api_key"};
-   constexpr const std::string_view ENABLED("enabled");
-   constexpr const std::string_view KEY("key");
-   constexpr const std::string_view MESSAGE_TITLE("message_title");
-   constexpr const std::string_view APPRISE_LOGGING("apprise_logging");
-   constexpr const std::string_view REMOTE_SCAN("remote_scan");
-   constexpr const std::string_view SECONDS_BEFORE_NOTIFY("seconds_before_notify");
-   constexpr const std::string_view SECONDS_BETWEEN_NOTIFIES("seconds_between_notifies");
-   constexpr const std::string_view SCANS("scans");
-   constexpr const std::string_view NAME("name");
-   constexpr const std::string_view LIBRARY("library");
-   constexpr const std::string_view PATHS("paths");
-   constexpr const std::string_view PATH("path");
-   constexpr const std::string_view IGNORE_FOLDERS("ignore_folders");
-   constexpr const std::string_view IGNORE_FOLDER("ignore_folder");
-   constexpr const std::string_view VALID_FILE_EXTENSIONS("valid_file_extensions");
-   constexpr const std::string_view EXTENSION("extension");
-
-
    ConfigReader::ConfigReader()
    {
       //_putenv_s("CONFIG_PATH", "../config");
       if (const auto* configPath = std::getenv("CONFIG_PATH");
-          configPath != nullptr)
+          configPath)
       {
          ReadConfigFile(configPath);
       }
       else
       {
-         Logger::Instance().Error("CONFIG_PATH environment variable not found!");
+         warp::log::Error("CONFIG_PATH environment variable not found!");
       }
    }
 
    void ConfigReader::ReadConfigFile(const char* path)
    {
-      std::string pathFileName{path};
-      pathFileName.append("/config.conf");
+      std::filesystem::path pathFileName = std::filesystem::path(path) / "config.conf";
+      std::ifstream file(pathFileName, std::ios::in | std::ios::binary);
 
-      std::ifstream f(pathFileName);
-      if (f.is_open() == false)
+      if (!file.is_open())
       {
-         Logger::Instance().Error(std::format("Config file {} not found!", pathFileName));
+         warp::log::Error("Config file {} not found!", pathFileName.string());
          return;
       }
 
-      try
+      if (auto ec = glz::read_file_json < glz::opts{.error_on_unknown_keys = false} > (
+         configData_,
+         pathFileName.string(),
+         std::string{}))
       {
-         auto jsonData = nlohmann::json::parse(f);
-
-         if (ReadServers(jsonData) == false)
-         {
-            Logger::Instance().Error("No Servers loaded exiting");
-            return;
-         }
-
-         // The configuration file is valid
-         configValid_ = true;
-
-         ReadAppriseLogging(jsonData);
-         ReadScanConfig(jsonData);
-      }
-      catch (const std::exception& e)
-      {
-         Logger::Instance().Error(std::format("{} parsing has an error {}", pathFileName, e.what()));
-         return;
-      }
-   }
-
-   void ConfigReader::ReadServerConfig(const nlohmann::json& jsonData, std::vector<ServerConfig>& serverVec)
-   {
-      for (auto& serverConfig : jsonData)
-      {
-         if (serverConfig.contains(SERVER_NAME) == false
-             || serverConfig.contains(URL) == false
-             || serverConfig.contains(API_KEY) == false)
-         {
-            Logger::Instance().Error(std::format("{} server config invalid server_name:{} url:{} api_key:{}",
-                                                 utils::GetFormattedPlex(),
-                                                 serverConfig.contains(SERVER_NAME) ? serverConfig[SERVER_NAME].get<std::string>() : "ERROR",
-                                                 serverConfig.contains(URL) ? serverConfig[URL].get<std::string>() : "ERROR",
-                                                 serverConfig.contains(API_KEY) ? serverConfig[API_KEY].get<std::string>() : "ERROR"));
-            break;
-         }
-
-         serverVec.emplace_back(serverConfig[SERVER_NAME].get<std::string>(), serverConfig[URL].get<std::string>(), serverConfig[API_KEY].get<std::string>());
-      }
-   }
-
-   bool ConfigReader::ReadServers(const nlohmann::json& jsonData)
-   {
-      if (jsonData.contains(PLEX))
-      {
-         ReadServerConfig(jsonData[PLEX], configData_.plexServers);
-      }
-
-      if (jsonData.contains(EMBY))
-      {
-         ReadServerConfig(jsonData[EMBY], configData_.embyServers);
-      }
-
-      if (jsonData.contains(JELLYFIN))
-      {
-         ReadServerConfig(jsonData[JELLYFIN], configData_.jellyfinServers);
-      }
-
-      return (configData_.plexServers.size() + configData_.embyServers.size() + configData_.jellyfinServers.size()) > 0;
-   }
-
-   void ConfigReader::ReadAppriseLogging(const nlohmann::json& jsonData)
-   {
-      if (jsonData.contains(APPRISE_LOGGING) == false
-          || jsonData[APPRISE_LOGGING].contains(ENABLED) == false
-          || jsonData[APPRISE_LOGGING][ENABLED].get<std::string>() != "True"
-          || jsonData[APPRISE_LOGGING].contains(URL) == false
-          || jsonData[APPRISE_LOGGING].contains(KEY) == false
-          || jsonData[APPRISE_LOGGING].contains(MESSAGE_TITLE) == false)
-      {
+         warp::log::Warning("{} - Glaze Error: {} (File: {})",
+                            __func__, static_cast<int>(ec.ec), pathFileName.string());
          return;
       }
 
-      configData_.appriseLogging.enabled = true;
-      configData_.appriseLogging.url = jsonData[APPRISE_LOGGING][URL].get<std::string>();
-      configData_.appriseLogging.key = jsonData[APPRISE_LOGGING][KEY].get<std::string>();
-      configData_.appriseLogging.title = jsonData[APPRISE_LOGGING][MESSAGE_TITLE].get<std::string>();
-   }
-
-   void ConfigReader::ReadIndividualScanConfig(const nlohmann::json& jsonData)
-   {
-      auto readServerLibrary = [](const nlohmann::json& config, std::vector<ScanLibraryConfig>& libraryConfigs) {
-         if (config.contains(SERVER_NAME) == false
-             || config.contains(LIBRARY) == false)
-         {
-            return;
-         }
-
-         libraryConfigs.emplace_back(config[SERVER_NAME], config[LIBRARY]);
-      };
-
-      ScanConfig scanConfig;
-
-      if (jsonData.contains(NAME) == false)
-      {
-         return;
-      }
-      scanConfig.name = jsonData[NAME].get<std::string>();
-
-      if (jsonData.contains(PLEX))
-      {
-         for (const auto& plexScan : jsonData[PLEX])
-         {
-            readServerLibrary(plexScan, scanConfig.plexLibraries);
-         }
-      }
-
-
-      if (jsonData.contains(EMBY))
-      {
-         for (const auto& embyScan : jsonData[EMBY])
-         {
-            readServerLibrary(embyScan, scanConfig.embyLibraries);
-         }
-      }
-
-      if (jsonData.contains(JELLYFIN))
-      {
-         for (const auto& jellyfinScan : jsonData[JELLYFIN])
-         {
-            readServerLibrary(jellyfinScan, scanConfig.jellyfinLibraries);
-         }
-      }
-
-      if (jsonData.contains(PATHS))
-      {
-         for (const auto& path : jsonData[PATHS])
-         {
-            if (path.contains(PATH))
-            {
-               scanConfig.paths.emplace_back(path[PATH].get<std::string>());
-            }
-         }
-      }
-
-      if ((scanConfig.plexLibraries.size() + scanConfig.embyLibraries.size() + scanConfig.jellyfinLibraries.size()) > 0 && scanConfig.paths.size() > 0)
-      {
-         configData_.remoteScan.scans.emplace_back(scanConfig);
-      }
-   }
-
-   void ConfigReader::ReadIgnoreFolder(const nlohmann::json& jsonData)
-   {
-      if (jsonData.contains(IGNORE_FOLDER))
-      {
-         configData_.ignoreFolders.emplace_back(jsonData[IGNORE_FOLDER].get<std::string>());
-      }
-   }
-
-   void ConfigReader::ReadValidExtension(const nlohmann::json& jsonData)
-   {
-      if (jsonData.contains(EXTENSION))
-      {
-         configData_.validFileExtensions.emplace_back(jsonData[EXTENSION].get<std::string>());
-      }
-   }
-
-   bool ConfigReader::ReadScanConfig(const nlohmann::json& jsonData)
-   {
-      if (jsonData.contains(REMOTE_SCAN) == false)
-      {
-         Logger::Instance().Error(std::format("{} settings not found in config file", REMOTE_SCAN));
-         return false;
-      }
-
-      const auto& remoteScanJson = jsonData[REMOTE_SCAN];
-      if (remoteScanJson.contains(SECONDS_BEFORE_NOTIFY))
-      {
-         configData_.remoteScan.secondsBeforeNotify = remoteScanJson[SECONDS_BEFORE_NOTIFY].get<int>();
-      }
-
-      if (remoteScanJson.contains(SECONDS_BETWEEN_NOTIFIES))
-      {
-         configData_.remoteScan.secondsBetweenNotifies = remoteScanJson[SECONDS_BETWEEN_NOTIFIES].get<int>();
-      }
-
-      if (remoteScanJson.contains(SCANS))
-      {
-         for (const auto& scan : remoteScanJson[SCANS])
-         {
-            ReadIndividualScanConfig(scan);
-         }
-
-         if (configData_.remoteScan.scans.empty())
-         {
-            Logger::Instance().Error(std::format("{} settings {} no valid scans read in", REMOTE_SCAN, SCANS));
-            return false;
-         }
-      }
-      else
-      {
-         Logger::Instance().Error(std::format("{} settings {} not found in config file", REMOTE_SCAN, SCANS));
-         return false;
-      }
-
-      if (remoteScanJson.contains(IGNORE_FOLDERS))
-      {
-         for (const auto& ignoreFolder : remoteScanJson[IGNORE_FOLDERS])
-         {
-            ReadIgnoreFolder(ignoreFolder);
-         }
-      }
-
-      if (remoteScanJson.contains(VALID_FILE_EXTENSIONS))
-      {
-         for (const auto& extension : remoteScanJson[VALID_FILE_EXTENSIONS])
-         {
-            ReadValidExtension(extension);
-         }
-      }
-
-      return true;
+      configValid_ = true;
    }
 
    bool ConfigReader::IsConfigValid() const
@@ -305,13 +78,13 @@ namespace remote_scan
       return configData_.remoteScan;
    }
 
-   const std::vector<std::string>& ConfigReader::GetIgnoreFolders() const
+   const std::vector<RemoteScanIgnoreFolder>& ConfigReader::GetIgnoreFolders() const
    {
-      return configData_.ignoreFolders;
+      return configData_.remoteScan.ignoreFolders;
    }
 
-   const std::vector<std::string>& ConfigReader::GetValidFileExtensions() const
+   const std::vector<RemoteScanFileExtension>& ConfigReader::GetValidFileExtensions() const
    {
-      return configData_.validFileExtensions;
+      return configData_.remoteScan.validFileExtensions;
    }
 }

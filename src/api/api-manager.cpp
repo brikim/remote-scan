@@ -1,9 +1,9 @@
 #include "api-manager.h"
 
-#include "logger/logger.h"
-#include "logger/log-utils.h"
+#include <warp/log.h>
+#include <warp/log-utils.h>
 
-#include <format>
+#include <algorithm>
 #include <ranges>
 
 namespace remote_scan
@@ -22,7 +22,7 @@ namespace remote_scan
    {
       std::ranges::for_each(serverConfigs, [this](const auto& server) {
          auto plexApi{std::make_unique<PlexApi>(server)};
-         plexApi->GetValid() ? LogServerConnectionSuccess(utils::GetFormattedPlex(), plexApi.get()) : LogServerConnectionError(plexApi.get());
+         plexApi->GetValid() ? LogServerConnectionSuccess(warp::GetFormattedPlex(), plexApi.get()) : LogServerConnectionError(plexApi.get());
          plexApis_.emplace_back(std::move(plexApi));
       });
    }
@@ -31,7 +31,7 @@ namespace remote_scan
    {
       std::ranges::for_each(serverConfigs, [this](const auto& server) {
          auto embyApi{std::make_unique<EmbyApi>(server)};
-         embyApi->GetValid() ? LogServerConnectionSuccess(utils::GetFormattedEmby(), embyApi.get()) : LogServerConnectionError(embyApi.get());
+         embyApi->GetValid() ? LogServerConnectionSuccess(warp::GetFormattedEmby(), embyApi.get()) : LogServerConnectionError(embyApi.get());
          embyApis_.emplace_back(std::move(embyApi));
       });
    }
@@ -41,7 +41,7 @@ namespace remote_scan
       auto serverReportedName{api->GetServerReportedName()};
       if (serverReportedName.has_value())
       {
-         Logger::Instance().Info(std::format("Connected to {}({}) successfully", serverName, api->GetServerReportedName().value()));
+         warp::log::Info("Connected to {}({}) successfully", serverName, api->GetServerReportedName().value());
       }
       else
       {
@@ -51,11 +51,11 @@ namespace remote_scan
 
    void ApiManager::LogServerConnectionError(ApiBase* api)
    {
-      Logger::Instance().Warning(std::format("{}({}) server not available. Is this correct {} {}",
-                                             utils::GetFormattedEmby(),
-                                             api->GetName(),
-                                             utils::GetTag("url", api->GetUrl()),
-                                             utils::GetTag("api_key", api->GetApiKey())));
+      warp::log::Warning("{}({}) server not available. Is this correct {} {}",
+                         warp::GetFormattedEmby(),
+                         api->GetName(),
+                         warp::GetTag("url", api->GetUrl()),
+                         warp::GetTag("api_key", api->GetApiKey()));
    }
 
    PlexApi* ApiManager::GetPlexApi(std::string_view name) const
@@ -74,16 +74,14 @@ namespace remote_scan
       return iter != embyApis_.end() ? iter->get() : nullptr;
    }
 
-   ApiBase* ApiManager::GetApi(ApiType type, std::string_view name) const
+   ApiBase* ApiManager::GetApi(warp::ApiType type, std::string_view name) const
    {
       switch (type)
       {
-         case ApiType::PLEX:
+         case warp::ApiType::PLEX:
             return GetPlexApi(name);
-         case ApiType::EMBY:
+         case warp::ApiType::EMBY:
             return GetEmbyApi(name);
-         case ApiType::JELLYFIN:
-            break;
          default:
             break;
       }

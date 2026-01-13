@@ -4,9 +4,11 @@
 #include "config-reader/config-reader-types.h"
 #include "update-listener.h"
 
+#include <efsw/efsw.hpp>
+#include <warp/log-types.h>
+
 #include <atomic>
 #include <chrono>
-#include <efsw/efsw.hpp>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -55,7 +57,7 @@ namespace remote_scan
 
       void LogServerLibraryIssue(std::string_view serverType, const ScanLibraryConfig& library);
       void LogServerNotAvailable(std::string_view serverType, const ScanLibraryConfig& library);
-      bool NotifyServer(ApiType type, const ScanLibraryConfig& library);
+      bool NotifyServer(warp::ApiType type, const ScanLibraryConfig& library);
       void NotifyMediaServers(const ActiveMonitor& monitor);
 
       std::shared_ptr<ConfigReader> configReader_;

@@ -1,9 +1,13 @@
 ﻿#include "remote-scan.h"
 
 #include "api/api-plex.h"
-#include "logger/logger.h"
-#include "logger/log-utils.h"
+#include "types.h"
 
+#include <warp/log.h>
+#include <warp/log-utils.h>
+#include <warp/utils.h>
+
+#include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <format>
@@ -19,14 +23,14 @@ namespace remote_scan
 
    void RemoteScan::CleanupShutdown()
    {
-      Logger::Instance().Info("Removing directory watches");
+      warp::log::Info("Removing directory watches");
       for (auto& watcherPair : watchers_)
       {
          watcherPair.first.reset();
       }
 
       // Notify the monitor thread for shutdown
-      Logger::Instance().Info("Requesting monitor thread to exit");
+      warp::log::Info("Requesting monitor thread to exit");
       {
          std::unique_lock<std::mutex> cvUniqueLock(monitorCvLock_);
          monitorCv_.notify_all();
@@ -38,12 +42,6 @@ namespace remote_scan
 
    void RemoteScan::Run()
    {
-      if (configReader_->IsConfigValid() == false)
-      {
-         Logger::Instance().Info("Config file not valid shutting down");
-         return;
-      }
-
       const auto& config{configReader_->GetRemoteScanConfig()};
       for (const auto& scan : config.scans)
       {
@@ -53,14 +51,14 @@ namespace remote_scan
          // For each path in this scan add a watch
          for (const auto& path : scan.paths)
          {
-            std::filesystem::path fsPath(path);
+            std::filesystem::path fsPath(path.path);
             if (std::filesystem::exists(fsPath))
             {
-               watcherPair.first->addWatch(path, watcherPair.second.get(), true);
+               watcherPair.first->addWatch(path.path, watcherPair.second.get(), true);
             }
             else
             {
-               Logger::Instance().Warning(std::format("{} contains {} that does not exist", utils::GetTag("scan", scan.name), utils::GetTag("path", path)));
+               warp::log::Warning("{} contains {} that does not exist", warp::GetTag("scan", scan.name), warp::GetTag("path", path.path));
             }
          }
       };
@@ -83,26 +81,26 @@ namespace remote_scan
       // Clean up all threads before shutting down
       CleanupShutdown();
 
-      Logger::Instance().Info("Run has completed");
+      warp::log::Info("Run has completed");
    }
 
    void RemoteScan::LogServerLibraryIssue(std::string_view serverType, const ScanLibraryConfig& library)
    {
-      Logger::Instance().Warning(std::format("{}({}) {} not found ... Skipped notify",
-                                             serverType,
-                                             library.server,
-                                             utils::GetTag("library", library.library)));
+      warp::log::Warning("{}({}) {} not found ... Skipped notify",
+                         serverType,
+                         library.server,
+                         warp::GetTag("library", library.library));
    }
 
    void RemoteScan::LogServerNotAvailable(std::string_view serverType, const ScanLibraryConfig& library)
    {
-      Logger::Instance().Warning(std::format("{}({}) server not available ... Skipped notify for {}",
-                                             serverType,
-                                             library.server,
-                                             utils::GetTag("library", library.library)));
+      warp::log::Warning("{}({}) server not available ... Skipped notify for {}",
+                         serverType,
+                         library.server,
+                         warp::GetTag("library", library.library));
    }
 
-   bool RemoteScan::NotifyServer(ApiType type, const ScanLibraryConfig& library)
+   bool RemoteScan::NotifyServer(warp::ApiType type, const ScanLibraryConfig& library)
    {
       auto* api{apiManager_.GetApi(type, library.server)};
       if (api != nullptr)
@@ -117,17 +115,17 @@ namespace remote_scan
             }
             else
             {
-               LogServerLibraryIssue(utils::GetFormattedApiName(type), library);
+               LogServerLibraryIssue(warp::GetFormattedApiName(type), library);
             }
          }
          else
          {
-            LogServerNotAvailable(utils::GetFormattedApiName(type), library);
+            LogServerNotAvailable(warp::GetFormattedApiName(type), library);
          }
       }
       else
       {
-         Logger::Instance().Warning(std::format("Notify Server called but no valid API found for {}({})", utils::GetFormattedApiName(type), library.server));
+         warp::log::Warning("Notify Server called but no valid API found for {}({})", warp::GetFormattedApiName(type), library.server);
       }
       return false;
    }
@@ -138,39 +136,39 @@ namespace remote_scan
       auto scanIter{std::ranges::find_if(scanConfig.scans, [&monitor](const auto& scan) { return scan.name == monitor.scanName; })};
       if (scanIter == scanConfig.scans.end())
       {
-         Logger::Instance().Error(std::format("Attempting to notify media servers but {} not found!", monitor.scanName));
+         warp::log::Error("Attempting to notify media servers but {} not found!", monitor.scanName);
          return;
       }
 
       const auto& scan{*scanIter};
-      std::string target;
+      std::string syncServers;
 
       for (const auto& plexLibrary : scan.plexLibraries)
       {
-         if (NotifyServer(ApiType::PLEX, plexLibrary))
+         if (NotifyServer(warp::ApiType::PLEX, plexLibrary))
          {
-            target = utils::BuildTargetString(target, utils::GetFormattedApiName(ApiType::PLEX), plexLibrary.server);
+            syncServers = warp::BuildSyncServerString(syncServers, warp::GetFormattedApiName(warp::ApiType::PLEX), plexLibrary.server);
          }
       }
 
       for (const auto& embyLibrary : scan.embyLibraries)
       {
-         if (NotifyServer(ApiType::EMBY, embyLibrary))
+         if (NotifyServer(warp::ApiType::EMBY, embyLibrary))
          {
-            target = utils::BuildTargetString(target, utils::GetFormattedApiName(ApiType::EMBY), embyLibrary.server);
+            syncServers = warp::BuildSyncServerString(syncServers, warp::GetFormattedApiName(warp::ApiType::EMBY), embyLibrary.server);
          }
       }
 
-      if (target.empty() == false)
+      if (syncServers.empty() == false)
       {
          for (auto& path : monitor.paths)
          {
-            Logger::Instance().Info(std::format("{} Monitor moved to target {} {}", utils::GetAnsiText(">>>", utils::ANSI_MONITOR_PROCESSED), target, utils::GetTag("folder", path.displayFolder)));
+            warp::log::Info("{} Monitor moved to target {} {}", warp::GetAnsiText(">>>", ANSI_MONITOR_PROCESSED), syncServers, warp::GetTag("folder", path.displayFolder));
          }
       }
       else
       {
-         Logger::Instance().Warning(std::format("No Servers Notified for monitor {}", monitor.scanName));
+         warp::log::Warning("No Servers Notified for monitor {}", monitor.scanName);
       }
    }
 
@@ -187,12 +185,12 @@ namespace remote_scan
          // If there are no active monitors go to sleep and wait to be signalled
          if (shouldMonitorWait)
          {
-            Logger::Instance().Trace("Monitor thread going to sleep");
+            warp::log::Trace("Monitor thread going to sleep");
 
             std::unique_lock<std::mutex> cvUniqueLock(monitorCvLock_);
             monitorCv_.wait(cvUniqueLock, [this] { return (runMonitor_.load() || shutdownRemotescan_.load()); });
 
-            Logger::Instance().Trace("Monitor thread waking up");
+            warp::log::Trace("Monitor thread waking up");
          }
 
          bool shouldMonitorSleep{false};
@@ -210,7 +208,7 @@ namespace remote_scan
                   lastNotifyTime_ = currentTime;
                   NotifyMediaServers(monitor);
 
-                  Logger::Instance().Trace(std::format("Processed & Removed monitor {}", monitor.scanName));
+                  warp::log::Trace("Processed & Removed monitor {}", monitor.scanName);
 
                   activeMonitors_.erase(iter);
                   break;
@@ -229,7 +227,7 @@ namespace remote_scan
          runMonitor_.store(false);
       }
 
-      Logger::Instance().Info("Monitor thread has exited");
+      warp::log::Info("Monitor thread has exited");
    }
 
    std::string RemoteScan::GetDisplayFolder(std::string_view path)
@@ -269,25 +267,25 @@ namespace remote_scan
 
    void RemoteScan::LogMonitorAdded(std::string_view scanName, std::string_view displayFolder)
    {
-      Logger::Instance().Info(std::format("{} Scan moved to monitor {} {}", utils::GetAnsiText("-->", utils::ANSI_MONITOR_ADDED), utils::GetTag("name", scanName), utils::GetTag("folder", displayFolder)));
+      warp::log::Info("{} Scan moved to monitor {} {}", warp::GetAnsiText("-->", ANSI_MONITOR_ADDED), warp::GetTag("name", scanName), warp::GetTag("folder", displayFolder));
    }
 
    void RemoteScan::AddFileMonitor(std::string_view scanName, std::string_view path)
    {
       std::scoped_lock scopedMonitorLock(monitorLock_);
 
-      auto monitorIter{std::ranges::find_if(activeMonitors_, [scanName](auto& monitor) { return monitor.scanName == scanName; })};
-      if (monitorIter != activeMonitors_.end())
+      if (auto monitorIter{std::ranges::find_if(activeMonitors_, [scanName](auto& monitor) { return monitor.scanName == scanName; })};
+          monitorIter != activeMonitors_.end())
       {
          auto& currentMonitor{*monitorIter};
-         auto pathIter{std::ranges::find_if(currentMonitor.paths, [path](auto& monitorPath) { return monitorPath.path == path; })};
-         if (pathIter == currentMonitor.paths.end())
+         if (auto pathIter{std::ranges::find_if(currentMonitor.paths, [path](auto& monitorPath) { return monitorPath.path == path; })};
+             pathIter == currentMonitor.paths.end())
          {
             auto& paths{currentMonitor.paths.emplace_back(std::string(path), GetDisplayFolder(path))};
             LogMonitorAdded(scanName, paths.displayFolder);
          }
          (*monitorIter).time = std::chrono::system_clock::now();
-         Logger::Instance().Trace(std::format("Found existing monitor {} updating time", currentMonitor.scanName));
+         warp::log::Trace("Found existing monitor {} updating time", currentMonitor.scanName);
       }
       else
       {
@@ -317,7 +315,7 @@ namespace remote_scan
    {
       for (const auto& ignoreFolder : configReader_->GetIgnoreFolders())
       {
-         if (path.find(ignoreFolder) != std::string_view::npos)
+         if (path.find(ignoreFolder.folder) != std::string_view::npos)
          {
             return false;
          }
@@ -331,7 +329,7 @@ namespace remote_scan
 
       auto lowercaseFilename{GetLowercase(filename)};
       return validFileExtensions.empty() ? true : std::ranges::any_of(validFileExtensions, [this, &lowercaseFilename](const auto& extension) {
-         return lowercaseFilename.ends_with(GetLowercase(extension));
+         return lowercaseFilename.ends_with(warp::ToLower(extension.extension));
       });
    }
 
@@ -345,7 +343,7 @@ namespace remote_scan
 
    void RemoteScan::ProcessShutdown()
    {
-      Logger::Instance().Info("Shutdown request received");
+      warp::log::Info("Shutdown request received");
 
       std::unique_lock<std::mutex> cvUniqueLock(runCvLock_);
       shutdownRemotescan_.store(true);

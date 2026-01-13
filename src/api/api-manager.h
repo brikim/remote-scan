@@ -6,6 +6,8 @@
 #include "config-reader/config-reader.h"
 #include "types.h"
 
+#include <warp/log-types.h>
+
 #include <memory>
 #include <vector>
 
@@ -17,7 +19,7 @@ namespace remote_scan
       ApiManager(std::shared_ptr<ConfigReader> configReader);
       virtual ~ApiManager() = default;
 
-      [[nodiscard]] ApiBase* GetApi(ApiType type, std::string_view name) const;
+      [[nodiscard]] ApiBase* GetApi(warp::ApiType type, std::string_view name) const;
       [[nodiscard]] PlexApi* GetPlexApi(std::string_view name) const;
       [[nodiscard]] EmbyApi* GetEmbyApi(std::string_view name) const;
 

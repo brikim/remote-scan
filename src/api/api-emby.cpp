@@ -1,79 +1,111 @@
 #include "api-emby.h"
 
-#include "logger/logger.h"
-#include "logger/log-utils.h"
 #include "types.h"
 
+#include <glaze/glaze.hpp>
+#include <warp/log.h>
+#include <warp/log-types.h>
+#include <warp/log-utils.h>
+
 #include <format>
-#include <json/json.hpp>
 #include <ranges>
 
 namespace remote_scan
 {
-   static const std::string API_BASE{"/emby"};
-   static const std::string API_SYSTEM_INFO{"/System/Info"};
-   static const std::string API_MEDIA_FOLDERS{"/Library/SelectableMediaFolders"};
+   namespace
+   {
+      const std::string API_BASE{"/emby"};
+      const std::string API_TOKEN_NAME{"api_key"};
 
-   static constexpr std::string_view SERVER_NAME{"ServerName"};
-   static constexpr std::string_view NAME{"Name"};
-   static constexpr std::string_view ID{"Id"};
+      const std::string API_SYSTEM_INFO{"/System/Info"};
+      const std::string API_MEDIA_FOLDERS{"/Library/SelectableMediaFolders"};
+
+      constexpr std::string_view SERVER_NAME{"ServerName"};
+      constexpr std::string_view NAME{"Name"};
+      constexpr std::string_view ID{"Id"};
+   }
+
+   struct JsonServerResponse
+   {
+      std::string ServerName;
+   };
+
+   struct JsonEmbyLibrary
+   {
+      std::string Name;
+      std::string Id;
+   };
 
    EmbyApi::EmbyApi(const ServerConfig& serverConfig)
-      : ApiBase(serverConfig, "EmbyApi", utils::ANSI_CODE_EMBY)
+      : ApiBase(serverConfig, "EmbyApi", warp::ANSI_CODE_EMBY)
       , client_(GetUrl())
    {
       constexpr time_t timeoutSec{5};
       client_.set_connection_timeout(timeoutSec);
    }
 
-   std::string EmbyApi::BuildApiPath(std::string_view path)
+   std::string_view EmbyApi::GetApiBase() const
    {
-      return std::format("{}{}?api_key={}", API_BASE, path, GetApiKey());
+      return API_BASE;
    }
 
-   void EmbyApi::AddApiParam(std::string& url, const std::list<std::pair<std::string_view, std::string_view>>& params)
+   std::string_view EmbyApi::GetApiTokenName() const
    {
-      std::ranges::for_each(params, [&url](const auto& param) {
-         url.append(std::format("&{}={}", param.first, param.second));
-      });
+      return API_TOKEN_NAME;
    }
 
    bool EmbyApi::GetValid()
    {
-      httplib::Headers header;
-      auto res = client_.Get(BuildApiPath(API_SYSTEM_INFO), header);
+      auto res = client_.Get(BuildApiPath(API_SYSTEM_INFO), emptyHeaders_);
       return res.error() == httplib::Error::Success && res.value().status < VALID_HTTP_RESPONSE_MAX;
    }
 
    std::optional<std::string> EmbyApi::GetServerReportedName()
    {
-      httplib::Headers headers;
-      auto res = client_.Get(BuildApiPath(API_SYSTEM_INFO), headers);
-      if (res.error() == httplib::Error::Success)
+      auto res = client_.Get(BuildApiPath(API_SYSTEM_INFO), emptyHeaders_);
+
+      if (!IsHttpSuccess(__func__, res))
       {
-         auto data = nlohmann::json::parse(res.value().body);
-         if (data.contains(SERVER_NAME))
-         {
-            return data.at(SERVER_NAME).get<std::string>();
-         }
+         return std::nullopt;
       }
-      return std::nullopt;
+
+      JsonServerResponse serverResponse;
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.value().body))
+      {
+         LogWarning("{} - JSON Parse Error: {}",
+                    __func__, glz::format_error(ec, res.value().body));
+         return std::nullopt;
+      }
+
+      if (serverResponse.ServerName.empty())
+      {
+         return std::nullopt;
+      }
+      return std::move(serverResponse.ServerName);
    }
 
    std::optional<std::string> EmbyApi::GetLibraryId(std::string_view libraryName)
    {
-      httplib::Headers headers;
-      auto res = client_.Get(BuildApiPath(API_MEDIA_FOLDERS), headers);
-      if (res.error() == httplib::Error::Success)
+      auto res = client_.Get(BuildApiPath(API_MEDIA_FOLDERS), emptyHeaders_);
+
+      if (!IsHttpSuccess(__func__, res)) return std::nullopt;
+
+      std::vector<JsonEmbyLibrary> jsonLibraries;
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (jsonLibraries, res.value().body))
       {
-         auto data = nlohmann::json::parse(res.value().body);
-         for (const auto& library : data)
-         {
-            if (library.contains(NAME) && library.at(NAME).get<std::string>() == libraryName && library.contains(ID))
-            {
-               return library.at(ID).get<std::string>();
-            }
-         }
+         LogWarning("{} - JSON Parse Error: {}",
+                    __func__, glz::format_error(ec, res.value().body));
+         return std::nullopt;
+      }
+
+      auto it = std::ranges::find_if(jsonLibraries, [&](const auto& lib) {
+         return lib.Name == libraryName;
+      });
+
+      if (it != jsonLibraries.end())
+      {
+         // Move the ID out of our temporary vector and return it
+         return std::move(it->Id);
       }
       return std::nullopt;
    }
@@ -84,24 +116,14 @@ namespace remote_scan
          {"accept", "*/*"}
       };
 
-      auto apiUrl = BuildApiPath(std::format("/Items/{}/Refresh", libraryId));
-      AddApiParam(apiUrl, {
+      const auto apiUrl = BuildApiParamsPath(std::format("/Items/{}/Refresh", libraryId), {
          {"Recursive", "true"},
          {"ImageRefreshMode", "Default"},
-         //{"MetadataRefreshMode", ""}, // optional paramater
          {"ReplaceAllImages", "false"},
          {"ReplaceAllMetadata", "false"}
       });
 
       auto res = client_.Post(apiUrl, headers);
-      if (res.error() != httplib::Error::Success || res.value().status >= VALID_HTTP_RESPONSE_MAX)
-      {
-         Logger::Instance().Warning(std::format("{} - Library Scan {}",
-                                                GetLogHeader(),
-                                                utils::GetTag("error", res.error() != httplib::Error::Success
-                                                              ? std::to_string(static_cast<int>(res.error()))
-                                                              : std::format("{} - {}", res.value().reason, res.value().body))
-         ));
-      }
+      IsHttpSuccess(__func__, res);
    }
 }

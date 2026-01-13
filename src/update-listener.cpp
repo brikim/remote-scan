@@ -1,6 +1,6 @@
 #include "update-listener.h"
 
-#include "logger/logger.h"
+#include <warp/log.h>
 
 namespace remote_scan
 {
@@ -27,7 +27,7 @@ namespace remote_scan
             }
             break;
          default:
-            Logger::Instance().Warning(std::format("Recieved an unknown file action {} for file {} and directory {}", static_cast<int>(action), filename, dir));
+            warp::log::Warning("Recieved an unknown file action {} for file {} and directory {}", static_cast<int>(action), filename, dir);
       }
    }
 };
