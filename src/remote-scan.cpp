@@ -172,7 +172,7 @@ namespace remote_scan
       }
    }
 
-   void RemoteScan::Monitor(std::stop_token [[maybe_unused]] stopToken)
+   void RemoteScan::Monitor([[maybe_unused]] std::stop_token stopToken)
    {
       while (!shutdownRemotescan_.load())
       {

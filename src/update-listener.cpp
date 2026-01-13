@@ -9,11 +9,11 @@ namespace remote_scan
    {
    }
 
-   void UpdateListener::handleFileAction(efsw::WatchID [[maybe_unused]] watchid,
+   void UpdateListener::handleFileAction([[maybe_unused]] efsw::WatchID watchid,
                                          const std::string& dir,
                                          const std::string& filename,
                                          efsw::Action action,
-                                         std::string [[maybe_unused]] oldFilename)
+                                         [[maybe_unused]] std::string oldFilename)
    {
       switch (action)
       {

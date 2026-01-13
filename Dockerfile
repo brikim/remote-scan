@@ -38,7 +38,7 @@ ENV TZ=America/Chicago
 ENV CONFIG_PATH='/config'
 ENV LOG_PATH='/logs'
 
-COPY --from=build /app/remote-scan /usr/local/bin/remote-scan
+COPY --from=build /app/build/remote-scan /usr/local/bin/remote-scan
 
 RUN chmod +x /usr/local/bin/remote-scan
 
