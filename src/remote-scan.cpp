@@ -21,7 +21,7 @@ namespace remote_scan
    {
       for (const auto& ext : configReader_->GetValidFileExtensions())
       {
-         std::string lowerExt = warp::ToLower(ext.extension);
+         auto lowerExt = warp::ToLower(ext.extension);
          if (!lowerExt.empty() && lowerExt[0] != '.')
          {
             lowerExt = "." + lowerExt;
@@ -120,9 +120,9 @@ namespace remote_scan
          if (api->GetValid())
          {
             auto libraryId{api->GetLibraryId(library.library)};
-            if (libraryId.has_value())
+            if (libraryId)
             {
-               api->SetLibraryScan(libraryId.value());
+               api->SetLibraryScan(*libraryId);
                return true;
             }
             else
@@ -225,10 +225,10 @@ namespace remote_scan
             }
          }
 
-         if (monitorToProcess.has_value())
+         if (monitorToProcess)
          {
             warp::log::Trace("Throttle passed. Notifying for: {}", monitorToProcess->scanName);
-            NotifyMediaServers(monitorToProcess.value());
+            NotifyMediaServers(*monitorToProcess);
          }
          else
          {

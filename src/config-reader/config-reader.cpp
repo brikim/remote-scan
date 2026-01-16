@@ -73,6 +73,11 @@ namespace remote_scan
       return configData_.appriseLogging;
    }
 
+   const GotifyLoggingConfig& ConfigReader::GetGotifyLogging() const
+   {
+      return configData_.gotifyLogging;
+   }
+
    const RemoteScanConfig& ConfigReader::GetRemoteScanConfig() const
    {
       return configData_.remoteScan;

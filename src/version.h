@@ -3,5 +3,5 @@
 
 namespace remote_scan
 {
-   static constexpr const std::string_view REMOTE_SCAN_VERSION("1.1.5");
+   inline constexpr std::string_view REMOTE_SCAN_VERSION("1.1.6");
 }

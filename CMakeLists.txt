@@ -32,10 +32,11 @@ FetchContent_MakeAvailable(warp glaze httplib pugixml)
 
 if(NOT TARGET watcher_lib)
     add_library(watcher_lib INTERFACE)
-    
+    set_target_properties(watcher_lib PROPERTIES 
+       VERSION 0.14.3
+       GITHUB_URL "https://github.com/e-dant/watcher"
+    )
     target_include_directories(watcher_lib INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/external)
-    
-    # Ensure C++20 is used as required by the watcher library
     target_compile_features(watcher_lib INTERFACE cxx_std_20)
 
     # On Linux, the library needs threading support

@@ -18,6 +18,7 @@ namespace remote_scan
       [[nodiscard]] const std::vector<ServerConfig>& GetEmbyServers() const;
       [[nodiscard]] const std::vector<ServerConfig>& GetJellyfinServers() const;
       [[nodiscard]] const AppriseLoggingConfig& GetAppriseLogging() const;
+      [[nodiscard]] const GotifyLoggingConfig& GetGotifyLogging() const;
       [[nodiscard]] const RemoteScanConfig& GetRemoteScanConfig() const;
       [[nodiscard]] const std::vector<RemoteScanIgnoreFolder>& GetIgnoreFolders() const;
       [[nodiscard]] const std::vector<RemoteScanFileExtension>& GetValidFileExtensions() const;

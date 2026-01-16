@@ -12,7 +12,7 @@ namespace remote_scan
                     std::string_view ansiiCode)
       : header_(std::format("{}{}{}({})", ansiiCode, className, warp::ANSI_CODE_LOG, serverConfig.name))
       , name_(serverConfig.name)
-      , url_(serverConfig.address)
+      , url_(serverConfig.url)
       , apiKey_(serverConfig.apiKey)
       , logHeader_(std::format("{}{}{}({})", ansiiCode, className, warp::ANSI_CODE_LOG, name_))
    {

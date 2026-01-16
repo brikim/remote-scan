@@ -35,9 +35,9 @@ namespace remote_scan
    void ApiManager::LogServerConnectionSuccess(std::string_view serverName, ApiBase* api)
    {
       auto serverReportedName{api->GetServerReportedName()};
-      if (serverReportedName.has_value())
+      if (serverReportedName)
       {
-         warp::log::Info("Connected to {}({}) successfully", serverName, api->GetServerReportedName().value());
+         warp::log::Info("Connected to {}({}) successfully", serverName, *api->GetServerReportedName());
       }
       else
       {

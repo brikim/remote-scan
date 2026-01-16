@@ -29,12 +29,27 @@ void init_logging(const std::shared_ptr<remote_scan::ConfigReader>& configReader
 
    // Initialize Apprise logging if configured
    const auto& appriseConfig = configReader->GetAppriseLogging();
-   warp::AppriseLoggingConfig loomlogAppriseConfig;
-   loomlogAppriseConfig.enabled = appriseConfig.enabled;
-   loomlogAppriseConfig.url = appriseConfig.url;
-   loomlogAppriseConfig.key = appriseConfig.key;
-   loomlogAppriseConfig.message_title = appriseConfig.title;
-   warp::log::InitApprise(loomlogAppriseConfig);
+   if (appriseConfig.enabled)
+   {
+      warp::AppriseLoggingConfig warpAppriseConfig{
+         .url = appriseConfig.url,
+         .key = appriseConfig.key,
+         .message_title = appriseConfig.title
+      };
+      warp::log::InitApprise(warpAppriseConfig);
+   }
+
+   const auto& gotifyConfig = configReader->GetGotifyLogging();
+   if (gotifyConfig.enabled)
+   {
+      warp::GotifyLoggingConfig warpGotifyConfig{
+         .url = gotifyConfig.url,
+         .key = gotifyConfig.key,
+         .message_title = gotifyConfig.title,
+         .priority = gotifyConfig.priority
+      };
+      warp::log::InitGotify(warpGotifyConfig);
+   }
 }
 
 int main()

@@ -10,14 +10,14 @@ namespace remote_scan
    struct ServerConfig
    {
       std::string name;
-      std::string address;
+      std::string url;
       std::string apiKey;
 
       struct glaze
       {
          static constexpr auto value = glz::object(
             "server_name", &ServerConfig::name,
-            "url", &ServerConfig::address,
+            "url", &ServerConfig::url,
             "api_key", &ServerConfig::apiKey
          );
       };
@@ -37,6 +37,26 @@ namespace remote_scan
             "url", &AppriseLoggingConfig::url,
             "key", &AppriseLoggingConfig::key,
             "message_title", &AppriseLoggingConfig::title
+         );
+      };
+   };
+
+   struct GotifyLoggingConfig
+   {
+      bool enabled{false};
+      std::string url;
+      std::string key;
+      std::string title;
+      int32_t priority{0};
+
+      struct glaze
+      {
+         static constexpr auto value = glz::object(
+            "enabled", &GotifyLoggingConfig::enabled,
+            "url", &GotifyLoggingConfig::url,
+            "key", &GotifyLoggingConfig::key,
+            "message_title", &GotifyLoggingConfig::title,
+            "priority", &GotifyLoggingConfig::priority
          );
       };
    };
@@ -139,6 +159,7 @@ namespace remote_scan
       std::vector<ServerConfig> embyServers;
       std::vector<ServerConfig> jellyfinServers;
       AppriseLoggingConfig appriseLogging;
+      GotifyLoggingConfig gotifyLogging;
       RemoteScanConfig remoteScan;
 
       struct glaze
@@ -148,6 +169,7 @@ namespace remote_scan
             "emby", &ConfigData::embyServers,
             "jellyfin", &ConfigData::jellyfinServers,
             "apprise_logging", &ConfigData::appriseLogging,
+            "gotify_logging", &ConfigData::gotifyLogging,
             "remote_scan", &ConfigData::remoteScan
          );
       };

@@ -14,11 +14,11 @@ namespace remote_scan
 {
    namespace
    {
-      const std::string API_BASE{""};
-      const std::string API_TOKEN_NAME("X-Plex-Token");
+      constexpr std::string_view API_BASE{""};
+      constexpr std::string_view API_TOKEN_NAME("X-Plex-Token");
 
-      const std::string API_SERVERS{"/servers"};
-      const std::string API_LIBRARIES{"/library/sections/"};
+      constexpr std::string_view API_SERVERS{"/servers"};
+      constexpr std::string_view API_LIBRARIES{"/library/sections/"};
 
       constexpr std::string_view ELEM_MEDIA_CONTAINER{"MediaContainer"};
 
@@ -64,8 +64,7 @@ namespace remote_scan
          return std::nullopt;
       }
 
-      pugi::xpath_node serverNode = doc.select_node("//Server[@name]");
-
+      auto serverNode = doc.select_node("//Server[@name]");
       if (!serverNode)
       {
          LogWarning("{} - No Server element with a name attribute found", __func__);
@@ -88,8 +87,7 @@ namespace remote_scan
       }
 
       auto query = std::format("//{}[@{}='{}']", "Directory", ATTR_TITLE, libraryName);
-      pugi::xpath_node libraryNode = doc.select_node(query.c_str());
-
+      auto libraryNode = doc.select_node(query.c_str());
       if (!libraryNode)
       {
          return std::nullopt;

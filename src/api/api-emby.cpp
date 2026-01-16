@@ -14,15 +14,11 @@ namespace remote_scan
 {
    namespace
    {
-      const std::string API_BASE{"/emby"};
-      const std::string API_TOKEN_NAME{"api_key"};
+      constexpr std::string_view API_BASE{"/emby"};
+      constexpr std::string_view API_TOKEN_NAME{"api_key"};
 
-      const std::string API_SYSTEM_INFO{"/System/Info"};
-      const std::string API_MEDIA_FOLDERS{"/Library/SelectableMediaFolders"};
-
-      constexpr std::string_view SERVER_NAME{"ServerName"};
-      constexpr std::string_view NAME{"Name"};
-      constexpr std::string_view ID{"Id"};
+      constexpr std::string_view API_SYSTEM_INFO{"/System/Info"};
+      constexpr std::string_view API_MEDIA_FOLDERS{"/Library/SelectableMediaFolders"};
    }
 
    struct JsonServerResponse
