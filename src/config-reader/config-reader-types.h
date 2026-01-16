@@ -113,6 +113,7 @@ namespace remote_scan
 
    struct RemoteScanConfig
    {
+      bool dryRun{false};
       int secondsBeforeNotify{90};
       int secondsBetweenNotifies{15};
       std::vector<ScanConfig> scans;
@@ -122,6 +123,7 @@ namespace remote_scan
       struct glaze
       {
          static constexpr auto value = glz::object(
+            "dry_run", &RemoteScanConfig::dryRun,
             "seconds_before_notify", &RemoteScanConfig::secondsBeforeNotify,
             "seconds_between_notifies", &RemoteScanConfig::secondsBetweenNotifies,
             "scans", &RemoteScanConfig::scans,

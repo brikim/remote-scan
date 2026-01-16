@@ -23,13 +23,27 @@ FetchContent_Declare(warp     GIT_REPOSITORY ${WARP_REPO}    GIT_TAG ${WARP_VERS
 FetchContent_Declare(glaze    GIT_REPOSITORY ${GLAZE_REPO}   GIT_TAG ${GLAZE_VERSION})
 FetchContent_Declare(httplib  GIT_REPOSITORY ${HTTPLIB_REPO} GIT_TAG ${HTTPLIB_VERSION})
 FetchContent_Declare(pugixml  GIT_REPOSITORY ${PUGIXML_REPO} GIT_TAG ${PUGIXML_VERSION})
-FetchContent_Declare(efsw     GIT_REPOSITORY ${EFSW_REPO}    GIT_TAG ${EFSW_VERSION})
 
 set(HTTPLIB_COMPILE OFF CACHE BOOL "" FORCE)
 set(PUGIXML_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 set(SPDLOG_MSVC_RUNTIME_LIBRARY "${CMAKE_MSVC_RUNTIME_LIBRARY}" CACHE STRING "" FORCE)
 
-FetchContent_MakeAvailable(warp glaze httplib pugixml efsw)
+FetchContent_MakeAvailable(warp glaze httplib pugixml)
+
+if(NOT TARGET watcher_lib)
+    add_library(watcher_lib INTERFACE)
+    
+    target_include_directories(watcher_lib INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/external)
+    
+    # Ensure C++20 is used as required by the watcher library
+    target_compile_features(watcher_lib INTERFACE cxx_std_20)
+
+    # On Linux, the library needs threading support
+    if(UNIX)
+        find_package(Threads REQUIRED)
+        target_link_libraries(watcher_lib INTERFACE Threads::Threads)
+    endif()
+endif()
 
 set(REMOTESCAN_SOURCES
     src/api/api-base.cpp
@@ -39,7 +53,6 @@ set(REMOTESCAN_SOURCES
 	src/config-reader/config-reader.cpp
 	src/main.cpp
 	src/remote-scan.cpp
-	src/update-listener.cpp
 )
 
 # 6. CREATE THE TARGET (Only call this ONCE)
@@ -87,6 +100,7 @@ target_precompile_headers(remote-scan PRIVATE
     <httplib.h>
     <glaze/glaze.hpp>
     <pugixml.hpp>
+    <watcher/watcher.hpp>
 )
 
 # 10. INCLUDES & LINKING
@@ -97,5 +111,5 @@ target_link_libraries(remote-scan PRIVATE
     pugixml::pugixml
     glaze::glaze
     httplib::httplib
-    efsw
+    watcher_lib
 )
