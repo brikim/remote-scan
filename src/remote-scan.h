@@ -36,6 +36,7 @@ namespace remote_scan
       void ProcessFileUpdate(std::string_view scanName,
                              std::string_view path,
                              std::string_view filename,
+                             bool isFolder,
                              bool destroy);
       void ProcessShutdown();
 
@@ -66,8 +67,6 @@ namespace remote_scan
       void LogMonitorAdded(std::string_view scanName, std::string_view displayFolder);
       void AddFileMonitor(std::string_view scanName, std::string_view path, bool destroy);
 
-      void TouchFolder(const std::filesystem::path& folderPath);
-      void SetFolderNeedsTimeUpdate(const ScanConfig& scan, const ActiveMonitor& monitor);
       void LogServerLibraryIssue(std::string_view serverType, const ScanLibraryConfig& library);
       void LogServerNotAvailable(std::string_view serverType, const ScanLibraryConfig& library);
       bool NotifyServer(warp::ApiType type, const ScanLibraryConfig& library);

@@ -74,10 +74,10 @@ namespace remote_scan
                       e.effect_type == wtr::event::effect_type::modify ||
                       e.effect_type == wtr::event::effect_type::destroy)
                   {
-                     std::filesystem::path p(e.path_name);
                      this->ProcessFileUpdate(scanName,
-                                             p.parent_path().string(),
-                                             p.filename().string(),
+                                             e.path_name.parent_path().string(),
+                                             e.path_name.filename().string(),
+                                             e.path_type == wtr::event::path_type::dir,
                                              e.effect_type == wtr::event::effect_type::destroy);
                   }
                   return true;
@@ -157,59 +157,6 @@ namespace remote_scan
       return false;
    }
 
-   void RemoteScan::TouchFolder(const std::filesystem::path& folderPath)
-   {
-      std::error_code ec;
-      auto now = std::filesystem::file_time_type::clock::now();
-      std::filesystem::last_write_time(folderPath, now, ec);
-
-      if (ec)
-      {
-         // Only log if it's a real error (not just a race condition where the folder vanished)
-         if (ec != std::errc::no_such_file_or_directory)
-         {
-            warp::log::Error("Failed mtime update for {}: {}",
-                warp::GetTag("folder", folderPath.string()), ec.message());
-         }
-      }
-      else
-      {
-         warp::log::Trace("Successfully touched {}", warp::GetTag("folder", folderPath.string()));
-      }
-   }
-
-   void RemoteScan::SetFolderNeedsTimeUpdate(const ScanConfig& scan, const ActiveMonitor& monitor)
-   {
-      std::set<std::filesystem::path> uniqueFoldersToTouch;
-
-      for (const auto& pathInfo : monitor.paths)
-      {
-         // Use string_view to avoid allocations during prefix checking
-         std::string_view eventPath = pathInfo.path;
-
-         for (const auto& pc : scan.paths)
-         {
-            if (!eventPath.starts_with(pc.path)) continue;
-
-            // Boundary check to ensure /media/temp doesn't match /media/template
-            bool isDirMatch = (eventPath.length() == pc.path.length()) ||
-               (pc.path.back() == std::filesystem::path::preferred_separator) ||
-               (eventPath[pc.path.length()] == std::filesystem::path::preferred_separator);
-
-            if (isDirMatch)
-            {
-               uniqueFoldersToTouch.insert(pc.path);
-               break;
-            }
-         }
-      }
-
-      for (const auto& folder : uniqueFoldersToTouch)
-      {
-         TouchFolder(folder);
-      }
-   }
-
    void RemoteScan::NotifyMediaServers(const ActiveMonitor& monitor)
    {
       const auto& scanConfig{scanConfig_};
@@ -222,13 +169,6 @@ namespace remote_scan
       }
 
       const auto& scan{*scanIter};
-
-      // If a path was destroyed we need to update the parent folder time
-      if (monitor.destroy)
-      {
-         SetFolderNeedsTimeUpdate(scan, monitor);
-      }
-
       std::string syncServers;
 
       for (const auto& plexLibrary : scan.plexLibraries)
@@ -251,9 +191,10 @@ namespace remote_scan
       {
          for (auto& path : monitor.paths)
          {
-            warp::log::Info("{}{} Monitor moved to target {} {}",
+            warp::log::Info("{}{} Monitor {} moved to target {} {}",
                             scanConfig_.dryRun ? "[DRY RUN] " : "",
                             warp::GetAnsiText(">>>", ANSI_MONITOR_PROCESSED),
+                            warp::GetTag("name", monitor.scanName),
                             syncServers,
                             warp::GetTag("folder", path.displayFolder));
          }
@@ -422,10 +363,14 @@ namespace remote_scan
       return validExtensions_.contains(lowerExt);
    }
 
-   void RemoteScan::ProcessFileUpdate(std::string_view scanName, std::string_view path, std::string_view filename, bool destroy)
+   void RemoteScan::ProcessFileUpdate(std::string_view scanName,
+                                      std::string_view path,
+                                      std::string_view filename,
+                                      bool isFolder,
+                                      bool destroy)
    {
       // Is the scan path valid and this is a destroy or the file being added has a valid extension
-      if (GetScanPathValid(path) && (destroy || GetFileExtensionValid(filename)))
+      if (GetScanPathValid(path) && (destroy || isFolder || GetFileExtensionValid(filename)))
       {
          AddFileMonitor(scanName, path, destroy);
       }

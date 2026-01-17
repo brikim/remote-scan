@@ -1,5 +1,5 @@
 # Version Definitions
-set(WARP_VERSION     v1.0.8)
+set(WARP_VERSION     v1.0.9)
 set(GLAZE_VERSION    v7.0.0)
 set(HTTPLIB_VERSION  v0.30.1)
 set(PUGIXML_VERSION  v1.15)
