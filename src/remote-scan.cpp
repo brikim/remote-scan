@@ -62,7 +62,7 @@ namespace remote_scan
    void RemoteScan::SetupScans()
    {
       bool testLogEnabled = false;
-      if (const auto* testLogs = std::getenv("REMOTE_SCAN_TEST_LOGS")) testLogEnabled = true;
+      if (std::getenv("REMOTE_SCAN_TEST_LOGS")) testLogEnabled = true;
 
       const auto& config{scanConfig_};
       for (const auto& scan : config.scans)
@@ -202,7 +202,7 @@ namespace remote_scan
       {
          for (auto& path : monitor.paths)
          {
-            warp::log::Info("{}{} {} moved to target {} {}",
+            warp::log::Info("{}{} Moved {} to target {} {}",
                             scanConfig_.dryRun ? "[DRY RUN] " : "",
                             warp::GetAnsiText(">>>", ANSI_MONITOR_PROCESSED),
                             warp::GetTag("monitor", monitor.scanName),
