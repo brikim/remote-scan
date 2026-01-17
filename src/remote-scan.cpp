@@ -10,16 +10,28 @@
 
 #include <algorithm>
 #include <cctype>
-#include <filesystem>
 #include <ranges>
+#include <set>
 
 namespace remote_scan
 {
    RemoteScan::RemoteScan(std::shared_ptr<ConfigReader> configReader)
-      : configReader_(configReader)
-      , apiManager_(configReader)
+      : apiManager_(configReader)
+      , scanConfig_(configReader->GetRemoteScanConfig())
    {
-      for (const auto& ext : configReader_->GetValidFileExtensions())
+      // Sort the scans by longest first
+      std::ranges::for_each(scanConfig_.scans, [](auto& scan) {
+         std::ranges::sort(scan.paths, [](const auto& a, const auto& b) {
+            return a.path.length() > b.path.length();
+         });
+      });
+
+      for (const auto& ignoreFolder : configReader->GetIgnoreFolders())
+      {
+         ignoreFolders_.emplace_back(ignoreFolder.folder);
+      }
+
+      for (const auto& ext : configReader->GetValidFileExtensions())
       {
          auto lowerExt = warp::ToLower(ext.extension);
          if (!lowerExt.empty() && lowerExt[0] != '.')
@@ -29,7 +41,7 @@ namespace remote_scan
          validExtensions_.insert(lowerExt);
       }
 
-      if (configReader_->GetRemoteScanConfig().dryRun)
+      if (scanConfig_.dryRun)
       {
          warp::log::Info("[DRY RUN MODE] Remote Scan will not notify media servers of changes");
       }
@@ -49,7 +61,7 @@ namespace remote_scan
 
    void RemoteScan::SetupScans()
    {
-      const auto& config{configReader_->GetRemoteScanConfig()};
+      const auto& config{scanConfig_};
       for (const auto& scan : config.scans)
       {
          for (const auto& pathConfig : scan.paths)
@@ -63,7 +75,10 @@ namespace remote_scan
                       e.effect_type == wtr::event::effect_type::destroy)
                   {
                      std::filesystem::path p(e.path_name);
-                     this->ProcessFileUpdate(scanName, p.parent_path().string(), p.filename().string());
+                     this->ProcessFileUpdate(scanName,
+                                             p.parent_path().string(),
+                                             p.filename().string(),
+                                             e.effect_type == wtr::event::effect_type::destroy);
                   }
                   return true;
                });
@@ -112,7 +127,7 @@ namespace remote_scan
 
    bool RemoteScan::NotifyServer(warp::ApiType type, const ScanLibraryConfig& library)
    {
-      if (configReader_->GetRemoteScanConfig().dryRun) return true;
+      if (scanConfig_.dryRun) return true;
 
       auto* api{apiManager_.GetApi(type, library.server)};
       if (api != nullptr)
@@ -142,9 +157,63 @@ namespace remote_scan
       return false;
    }
 
+   void RemoteScan::TouchFolder(const std::filesystem::path& folderPath)
+   {
+      std::error_code ec;
+      auto now = std::filesystem::file_time_type::clock::now();
+      std::filesystem::last_write_time(folderPath, now, ec);
+
+      if (ec)
+      {
+         // Only log if it's a real error (not just a race condition where the folder vanished)
+         if (ec != std::errc::no_such_file_or_directory)
+         {
+            warp::log::Error("Failed mtime update for {}: {}",
+                warp::GetTag("folder", folderPath.string()), ec.message());
+         }
+      }
+      else
+      {
+         warp::log::Trace("Successfully touched {}", warp::GetTag("folder", folderPath.string()));
+      }
+   }
+
+   void RemoteScan::SetFolderNeedsTimeUpdate(const ScanConfig& scan, const ActiveMonitor& monitor)
+   {
+      std::set<std::filesystem::path> uniqueFoldersToTouch;
+
+      for (const auto& pathInfo : monitor.paths)
+      {
+         // Use string_view to avoid allocations during prefix checking
+         std::string_view eventPath = pathInfo.path;
+
+         for (const auto& pc : scan.paths)
+         {
+            if (!eventPath.starts_with(pc.path)) continue;
+
+            // Boundary check to ensure /media/temp doesn't match /media/template
+            bool isDirMatch = (eventPath.length() == pc.path.length()) ||
+               (pc.path.back() == std::filesystem::path::preferred_separator) ||
+               (eventPath[pc.path.length()] == std::filesystem::path::preferred_separator);
+
+            if (isDirMatch)
+            {
+               uniqueFoldersToTouch.insert(pc.path);
+               break;
+            }
+         }
+      }
+
+      for (const auto& folder : uniqueFoldersToTouch)
+      {
+         TouchFolder(folder);
+      }
+   }
+
    void RemoteScan::NotifyMediaServers(const ActiveMonitor& monitor)
    {
-      const auto& scanConfig{configReader_->GetRemoteScanConfig()};
+      const auto& scanConfig{scanConfig_};
+
       auto scanIter{std::ranges::find_if(scanConfig.scans, [&monitor](const auto& scan) { return scan.name == monitor.scanName; })};
       if (scanIter == scanConfig.scans.end())
       {
@@ -153,6 +222,13 @@ namespace remote_scan
       }
 
       const auto& scan{*scanIter};
+
+      // If a path was destroyed we need to update the parent folder time
+      if (monitor.destroy)
+      {
+         SetFolderNeedsTimeUpdate(scan, monitor);
+      }
+
       std::string syncServers;
 
       for (const auto& plexLibrary : scan.plexLibraries)
@@ -176,7 +252,7 @@ namespace remote_scan
          for (auto& path : monitor.paths)
          {
             warp::log::Info("{}{} Monitor moved to target {} {}",
-                            configReader_->GetRemoteScanConfig().dryRun ? "[DRY RUN] " : "",
+                            scanConfig_.dryRun ? "[DRY RUN] " : "",
                             warp::GetAnsiText(">>>", ANSI_MONITOR_PROCESSED),
                             syncServers,
                             warp::GetTag("folder", path.displayFolder));
@@ -196,6 +272,7 @@ namespace remote_scan
       {
          std::optional<ActiveMonitor> monitorToProcess;
 
+         // Scoped section around lock
          {
             std::unique_lock lock(monitorLock_);
 
@@ -209,21 +286,21 @@ namespace remote_scan
             auto secondsSinceLastGlobalNotify = std::chrono::duration_cast<std::chrono::seconds>(
                 currentTime - lastNotifyTime_).count();
 
-            if (secondsSinceLastGlobalNotify >= configReader_->GetRemoteScanConfig().secondsBetweenNotifies)
+            if (secondsSinceLastGlobalNotify >= scanConfig_.secondsBetweenNotifies)
             {
                auto oldestIter = std::ranges::min_element(activeMonitors_, {}, &ActiveMonitor::time);
 
                auto secondsSinceEvent = std::chrono::duration_cast<std::chrono::seconds>(
                    currentTime - oldestIter->time).count();
 
-               if (secondsSinceEvent >= configReader_->GetRemoteScanConfig().secondsBeforeNotify)
+               if (secondsSinceEvent >= scanConfig_.secondsBeforeNotify)
                {
                   monitorToProcess = std::move(*oldestIter);
                   activeMonitors_.erase(oldestIter);
                   lastNotifyTime_ = currentTime;
                }
             }
-         }
+         } // Release the lock
 
          if (monitorToProcess)
          {
@@ -273,7 +350,7 @@ namespace remote_scan
       warp::log::Info("{} Scan moved to monitor {} {}", warp::GetAnsiText("-->", ANSI_MONITOR_ADDED), warp::GetTag("name", scanName), warp::GetTag("folder", displayFolder));
    }
 
-   void RemoteScan::AddFileMonitor(std::string_view scanName, std::string_view path)
+   void RemoteScan::AddFileMonitor(std::string_view scanName, std::string_view path, bool destroy)
    {
       std::unique_lock lock(monitorLock_);
 
@@ -282,6 +359,20 @@ namespace remote_scan
 
       if (monitorIter != activeMonitors_.end())
       {
+         auto now = std::chrono::system_clock::now();
+         auto msSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(
+             now - monitorIter->time).count();
+
+         monitorIter->time = now;
+         monitorIter->destroy = monitorIter->destroy || destroy;
+
+         if (!destroy && msSinceLastUpdate < 500 && path == monitorIter->lastPath)
+         {
+            return;
+         }
+
+         monitorIter->lastPath = path;
+
          auto pathIter = std::ranges::find_if(monitorIter->paths,
              [path](const auto& monitorPath) { return monitorPath.path == path; });
 
@@ -290,16 +381,15 @@ namespace remote_scan
             auto& newPath = monitorIter->paths.emplace_back(std::string(path), GetDisplayFolder(path));
             LogMonitorAdded(scanName, newPath.displayFolder);
          }
-
-         monitorIter->time = std::chrono::system_clock::now();
-         warp::log::Trace("Updated existing monitor {} updating time", scanName);
       }
       else
       {
-         // Create new monitor
+         // Brand new monitor entry
          auto& newMonitor = activeMonitors_.emplace_back();
          newMonitor.scanName = scanName;
          newMonitor.time = std::chrono::system_clock::now();
+         newMonitor.destroy = destroy;
+         newMonitor.lastPath = path;
 
          auto& newPath = newMonitor.paths.emplace_back(std::string(path), GetDisplayFolder(path));
          LogMonitorAdded(scanName, newPath.displayFolder);
@@ -311,8 +401,8 @@ namespace remote_scan
 
    bool RemoteScan::GetScanPathValid(std::string_view path)
    {
-      return !std::ranges::any_of(configReader_->GetIgnoreFolders(), [path](const auto& ignore) {
-         return path.find(ignore.folder) != std::string_view::npos;
+      return !std::ranges::any_of(ignoreFolders_, [path](const auto& ignore) {
+         return path.find(ignore) != std::string_view::npos;
       });
    }
 
@@ -320,24 +410,24 @@ namespace remote_scan
    {
       if (validExtensions_.empty()) return true;
 
-      // Use filesystem to extract the extension part only
-      std::filesystem::path p(filename);
-      if (!p.has_extension()) return false;
+      const auto dotPos = filename.find_last_of('.');
+      if (dotPos == std::string_view::npos) return false;
 
-      // Convert only the extension to lowercase
-      std::string ext = p.extension().string();
-      std::ranges::transform(ext, ext.begin(), [](unsigned char c) {
-         return std::tolower(c);
+      auto extView = filename.substr(dotPos);
+      std::string lowerExt(extView);
+      std::ranges::transform(lowerExt, lowerExt.begin(), [](unsigned char c) {
+         return static_cast<char>(std::tolower(c));
       });
 
-      return validExtensions_.contains(ext);
+      return validExtensions_.contains(lowerExt);
    }
 
-   void RemoteScan::ProcessFileUpdate(std::string_view scanName, std::string_view path, std::string_view filename)
+   void RemoteScan::ProcessFileUpdate(std::string_view scanName, std::string_view path, std::string_view filename, bool destroy)
    {
-      if (GetScanPathValid(path) && GetFileExtensionValid(filename))
+      // Is the scan path valid and this is a destroy or the file being added has a valid extension
+      if (GetScanPathValid(path) && (destroy || GetFileExtensionValid(filename)))
       {
-         AddFileMonitor(scanName, path);
+         AddFileMonitor(scanName, path, destroy);
       }
    }
 

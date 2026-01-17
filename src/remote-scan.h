@@ -8,6 +8,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <filesystem>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -32,7 +33,10 @@ namespace remote_scan
       RemoteScan& operator=(const RemoteScan&) = delete;
 
       void Run();
-      void ProcessFileUpdate(std::string_view scanName, std::string_view path, std::string_view filename);
+      void ProcessFileUpdate(std::string_view scanName,
+                             std::string_view path,
+                             std::string_view filename,
+                             bool destroy);
       void ProcessShutdown();
 
    private:
@@ -47,6 +51,8 @@ namespace remote_scan
          std::string scanName;
          std::chrono::system_clock::time_point time;
          std::vector<ActiveMonitorPaths> paths;
+         std::string lastPath;
+         bool destroy{false};
       };
 
       void SetupScans();
@@ -58,18 +64,21 @@ namespace remote_scan
       std::string GetDisplayFolder(std::string_view path);
 
       void LogMonitorAdded(std::string_view scanName, std::string_view displayFolder);
-      void AddFileMonitor(std::string_view scanName, std::string_view path);
+      void AddFileMonitor(std::string_view scanName, std::string_view path, bool destroy);
 
+      void TouchFolder(const std::filesystem::path& folderPath);
+      void SetFolderNeedsTimeUpdate(const ScanConfig& scan, const ActiveMonitor& monitor);
       void LogServerLibraryIssue(std::string_view serverType, const ScanLibraryConfig& library);
       void LogServerNotAvailable(std::string_view serverType, const ScanLibraryConfig& library);
       bool NotifyServer(warp::ApiType type, const ScanLibraryConfig& library);
       void NotifyMediaServers(const ActiveMonitor& monitor);
 
-      std::shared_ptr<ConfigReader> configReader_;
       ApiManager apiManager_;
+      RemoteScanConfig scanConfig_;
 
       std::list<wtr::watch> activeWatches_;
 
+      std::vector<std::string> ignoreFolders_;
       std::unordered_set<std::string> validExtensions_;
 
       // Synchronization
