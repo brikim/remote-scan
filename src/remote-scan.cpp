@@ -61,6 +61,9 @@ namespace remote_scan
 
    void RemoteScan::SetupScans()
    {
+      bool testLogEnabled = false;
+      if (const auto* testLogs = std::getenv("REMOTE_SCAN_TEST_LOGS")) testLogEnabled = true;
+
       const auto& config{scanConfig_};
       for (const auto& scan : config.scans)
       {
@@ -68,12 +71,20 @@ namespace remote_scan
          {
             if (std::filesystem::exists(pathConfig.path))
             {
-               activeWatches_.emplace_back(pathConfig.path, [this, scanName = scan.name](const wtr::event& e) {
+               activeWatches_.emplace_back(pathConfig.path, [this, testLogEnabled, scanName = scan.name](const wtr::event& e) {
                   if (e.effect_type == wtr::event::effect_type::rename ||
                       e.effect_type == wtr::event::effect_type::create ||
                       e.effect_type == wtr::event::effect_type::modify ||
                       e.effect_type == wtr::event::effect_type::destroy)
                   {
+                     if (testLogEnabled)
+                     {
+                        warp::log::Info("[TEST] {} {} {}",
+                                        warp::GetTag("effect", wtr::to<std::string>(e.effect_type)),
+                                        warp::GetTag("type", wtr::to<std::string>(e.path_type)),
+                                        warp::GetTag("path", e.path_name.string()));
+
+                     }
                      this->ProcessFileUpdate(scanName,
                                              e.path_name.parent_path().string(),
                                              e.path_name.filename().string(),
@@ -191,10 +202,10 @@ namespace remote_scan
       {
          for (auto& path : monitor.paths)
          {
-            warp::log::Info("{}{} Monitor {} moved to target {} {}",
+            warp::log::Info("{}{} {} moved to target {} {}",
                             scanConfig_.dryRun ? "[DRY RUN] " : "",
                             warp::GetAnsiText(">>>", ANSI_MONITOR_PROCESSED),
-                            warp::GetTag("name", monitor.scanName),
+                            warp::GetTag("monitor", monitor.scanName),
                             syncServers,
                             warp::GetTag("folder", path.displayFolder));
          }
@@ -288,7 +299,10 @@ namespace remote_scan
 
    void RemoteScan::LogMonitorAdded(std::string_view scanName, std::string_view displayFolder)
    {
-      warp::log::Info("{} Scan moved to monitor {} {}", warp::GetAnsiText("-->", ANSI_MONITOR_ADDED), warp::GetTag("name", scanName), warp::GetTag("folder", displayFolder));
+      warp::log::Info("{} Scan moved to {} {}",
+                      warp::GetAnsiText("-->", ANSI_MONITOR_ADDED),
+                      warp::GetTag("monitor", scanName),
+                      warp::GetTag("folder", displayFolder));
    }
 
    void RemoteScan::AddFileMonitor(std::string_view scanName, std::string_view path, bool destroy)
