@@ -4,6 +4,7 @@
 
 #include <warp/api/api-manager.h>
 #include <warp/log/log-types.h>
+#include <warp/scheduler/cron-scheduler.h>
 #include <watcher/watcher.hpp>
 
 #include <chrono>
@@ -71,6 +72,7 @@ namespace remote_scan
       void NotifyMediaServers(const ActiveMonitor& monitor);
 
       std::unique_ptr<warp::ApiManager> apiManager_;
+      warp::CronScheduler cronScheduler_;
       RemoteScanConfig scanConfig_;
 
       std::list<wtr::watch> activeWatches_;

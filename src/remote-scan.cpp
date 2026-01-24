@@ -131,6 +131,13 @@ namespace remote_scan
 
    void RemoteScan::Run()
    {
+      std::vector<warp::Task> apiTasks;
+      apiManager_->GetTasks(apiTasks);
+      for (const auto& task : apiTasks)
+      {
+         cronScheduler_.Add(task);
+      }
+
       // Setup all the scans from the configuration
       SetupScans();
 
@@ -139,9 +146,12 @@ namespace remote_scan
          this->Monitor(stopToken);
       });
 
-      std::mutex m;
-      std::unique_lock lk(m);
-      std::condition_variable_any().wait(lk, stopSource_.get_token(), [] { return false; });
+      if (cronScheduler_.Start())
+      {
+         std::mutex m;
+         std::unique_lock lk(m);
+         std::condition_variable_any().wait(lk, stopSource_.get_token(), [] { return false; });
+      }
 
       // Clean up all threads before shutting down
       CleanupShutdown();
