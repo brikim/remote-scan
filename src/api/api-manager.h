@@ -6,7 +6,7 @@
 #include "config-reader/config-reader.h"
 #include "types.h"
 
-#include <warp/log-types.h>
+#include <warp/types.h>
 
 #include <memory>
 #include <vector>

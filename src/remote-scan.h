@@ -62,7 +62,6 @@ namespace remote_scan
 
       bool GetScanPathValid(std::string_view path);
       bool GetFileExtensionValid(std::string_view filename);
-      std::string GetDisplayFolder(std::string_view path);
 
       void LogMonitorAdded(std::string_view scanName, std::string_view displayFolder);
       void AddFileMonitor(std::string_view scanName, std::string_view path, bool destroy);

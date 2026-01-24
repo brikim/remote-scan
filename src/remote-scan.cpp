@@ -268,35 +268,6 @@ namespace remote_scan
       warp::log::Info("Monitor thread has exited");
    }
 
-   std::string RemoteScan::GetDisplayFolder(std::string_view path)
-   {
-      namespace fs = std::filesystem;
-      fs::path p(path);
-
-      // If path ends in a slash, some implementations return an empty filename.
-      // We want the actual last directory component.
-      if (p.has_relative_path() && p.filename().empty())
-      {
-         p = p.parent_path();
-      }
-
-      auto lastElement = p.filename();
-      auto lastStr = lastElement.string();
-
-      // Check for "Season" in the last folder name
-      // (Matches "Season 01", "Specials", etc. if they contain "Season")
-      if (lastStr.find("Season") != std::string::npos)
-      {
-         if (p.has_parent_path())
-         {
-            // Returns "ShowName/Season 01"
-            return (p.parent_path().filename() / lastElement).generic_string();
-         }
-      }
-
-      return lastStr.empty() ? std::string(path) : lastStr;
-   }
-
    void RemoteScan::LogMonitorAdded(std::string_view scanName, std::string_view displayFolder)
    {
       warp::log::Info("{} Scan moved to {} {}",
@@ -333,7 +304,7 @@ namespace remote_scan
 
          if (pathIter == monitorIter->paths.end())
          {
-            auto& newPath = monitorIter->paths.emplace_back(std::string(path), GetDisplayFolder(path));
+            auto& newPath = monitorIter->paths.emplace_back(std::string(path), warp::GetDisplayFolder(path));
             LogMonitorAdded(scanName, newPath.displayFolder);
          }
       }
@@ -346,7 +317,7 @@ namespace remote_scan
          newMonitor.destroy = destroy;
          newMonitor.lastPath = path;
 
-         auto& newPath = newMonitor.paths.emplace_back(std::string(path), GetDisplayFolder(path));
+         auto& newPath = newMonitor.paths.emplace_back(std::string(path), warp::GetDisplayFolder(path));
          LogMonitorAdded(scanName, newPath.displayFolder);
       }
 
