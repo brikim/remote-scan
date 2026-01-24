@@ -1,9 +1,9 @@
 #pragma once
 
-#include "api/api-manager.h"
 #include "config-reader/config-reader-types.h"
 
-#include <warp/log-types.h>
+#include <warp/api/api-manager.h>
+#include <warp/log/log-types.h>
 #include <watcher/watcher.hpp>
 
 #include <chrono>
@@ -68,10 +68,9 @@ namespace remote_scan
 
       void LogServerLibraryIssue(std::string_view serverType, const ScanLibraryConfig& library);
       void LogServerNotAvailable(std::string_view serverType, const ScanLibraryConfig& library);
-      bool NotifyServer(warp::ApiType type, const ScanLibraryConfig& library);
       void NotifyMediaServers(const ActiveMonitor& monitor);
 
-      ApiManager apiManager_;
+      std::unique_ptr<warp::ApiManager> apiManager_;
       RemoteScanConfig scanConfig_;
 
       std::list<wtr::watch> activeWatches_;

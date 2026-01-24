@@ -47,10 +47,6 @@ if(NOT TARGET watcher_lib)
 endif()
 
 set(REMOTESCAN_SOURCES
-    src/api/api-base.cpp
-	src/api/api-emby.cpp
-	src/api/api-manager.cpp
-	src/api/api-plex.cpp
 	src/config-reader/config-reader.cpp
 	src/main.cpp
 	src/remote-scan.cpp

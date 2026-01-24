@@ -1,7 +1,7 @@
 #include "config-reader.h"
 
-#include <warp/log.h>
-#include <warp/log-utils.h>
+#include <warp/log/log.h>
+#include <warp/log/log-utils.h>
 
 #include <cstdlib>
 #include <filesystem>

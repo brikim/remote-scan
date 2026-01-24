@@ -1,11 +1,11 @@
 ﻿#include "remote-scan.h"
 
-#include "api/api-plex.h"
 #include "config-reader/config-reader.h"
 #include "types.h"
+#include "version.h"
 
-#include <warp/log.h>
-#include <warp/log-utils.h>
+#include <warp/log/log.h>
+#include <warp/log/log-utils.h>
 #include <warp/utils.h>
 
 #include <algorithm>
@@ -15,10 +15,39 @@
 
 namespace remote_scan
 {
-   RemoteScan::RemoteScan(std::shared_ptr<ConfigReader> configReader)
-      : apiManager_(configReader)
-      , scanConfig_(configReader->GetRemoteScanConfig())
+   namespace
    {
+      constexpr std::string_view APP_NAME("Remote-Scan");
+   };
+
+   RemoteScan::RemoteScan(std::shared_ptr<ConfigReader> configReader)
+      : scanConfig_(configReader->GetRemoteScanConfig())
+   {
+      std::vector<warp::ServerConfig> plexConfigs;
+      for (const auto& plexServer : configReader->GetPlexServers())
+      {
+         plexConfigs.emplace_back(warp::ServerConfig{
+            .server_name = plexServer.name,
+            .url = plexServer.url,
+            .api_key = plexServer.apiKey,
+            .tracker_url = "",
+            .tracker_api_key = "",
+            .media_path = ""});
+      }
+
+      std::vector<warp::ServerConfig> embyConfigs;
+      for (const auto& embyServer : configReader->GetEmbyServers())
+      {
+         embyConfigs.emplace_back(warp::ServerConfig{
+            .server_name = embyServer.name,
+            .url = embyServer.url,
+            .api_key = embyServer.apiKey,
+            .tracker_url = "",
+            .tracker_api_key = "",
+            .media_path = ""});
+      }
+      apiManager_ = std::make_unique<warp::ApiManager>(APP_NAME, REMOTE_SCAN_VERSION, plexConfigs, embyConfigs);
+
       // Sort the scans by longest first
       std::ranges::for_each(scanConfig_.scans, [](auto& scan) {
          std::ranges::sort(scan.paths, [](const auto& a, const auto& b) {
@@ -136,13 +165,21 @@ namespace remote_scan
                          warp::GetTag("library", library.library));
    }
 
-   bool RemoteScan::NotifyServer(warp::ApiType type, const ScanLibraryConfig& library)
+   void RemoteScan::NotifyMediaServers(const ActiveMonitor& monitor)
    {
-      if (scanConfig_.dryRun) return true;
+      const auto& scanConfig{scanConfig_};
 
-      auto* api{apiManager_.GetApi(type, library.server)};
-      if (api != nullptr)
+      auto scanIter{std::ranges::find_if(scanConfig.scans, [&monitor](const auto& scan) { return scan.name == monitor.scanName; })};
+      if (scanIter == scanConfig.scans.end())
       {
+         warp::log::Error("Attempting to notify media servers but {} not found!", monitor.scanName);
+         return;
+      }
+
+      const auto& scan{*scanIter};
+      std::string syncServers;
+
+      auto notifyServer = [this](auto* api, auto type, const auto& library) {
          if (api->GetValid())
          {
             auto libraryId{api->GetLibraryId(library.library)};
@@ -160,31 +197,12 @@ namespace remote_scan
          {
             LogServerNotAvailable(warp::GetFormattedApiName(type), library);
          }
-      }
-      else
-      {
-         warp::log::Warning("Notify Server called but no valid API found for {}({})", warp::GetFormattedApiName(type), library.server);
-      }
-      return false;
-   }
-
-   void RemoteScan::NotifyMediaServers(const ActiveMonitor& monitor)
-   {
-      const auto& scanConfig{scanConfig_};
-
-      auto scanIter{std::ranges::find_if(scanConfig.scans, [&monitor](const auto& scan) { return scan.name == monitor.scanName; })};
-      if (scanIter == scanConfig.scans.end())
-      {
-         warp::log::Error("Attempting to notify media servers but {} not found!", monitor.scanName);
-         return;
-      }
-
-      const auto& scan{*scanIter};
-      std::string syncServers;
+         return false;
+      };
 
       for (const auto& plexLibrary : scan.plexLibraries)
       {
-         if (NotifyServer(warp::ApiType::PLEX, plexLibrary))
+         if (notifyServer(apiManager_->GetPlexApi(plexLibrary.server), warp::ApiType::PLEX, plexLibrary))
          {
             syncServers = warp::BuildSyncServerString(syncServers, warp::GetFormattedApiName(warp::ApiType::PLEX), plexLibrary.server);
          }
@@ -192,7 +210,7 @@ namespace remote_scan
 
       for (const auto& embyLibrary : scan.embyLibraries)
       {
-         if (NotifyServer(warp::ApiType::EMBY, embyLibrary))
+         if (notifyServer(apiManager_->GetEmbyApi(embyLibrary.server), warp::ApiType::EMBY, embyLibrary))
          {
             syncServers = warp::BuildSyncServerString(syncServers, warp::GetFormattedApiName(warp::ApiType::EMBY), embyLibrary.server);
          }
