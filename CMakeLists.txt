@@ -21,12 +21,8 @@ include(Dependencies.cmake)
 
 FetchContent_Declare(warp     GIT_REPOSITORY ${WARP_REPO}    GIT_TAG ${WARP_VERSION})
 FetchContent_Declare(glaze    GIT_REPOSITORY ${GLAZE_REPO}   GIT_TAG ${GLAZE_VERSION})
-FetchContent_Declare(httplib  GIT_REPOSITORY ${HTTPLIB_REPO} GIT_TAG ${HTTPLIB_VERSION})
 
-set(HTTPLIB_COMPILE OFF CACHE BOOL "" FORCE)
-set(SPDLOG_MSVC_RUNTIME_LIBRARY "${CMAKE_MSVC_RUNTIME_LIBRARY}" CACHE STRING "" FORCE)
-
-FetchContent_MakeAvailable(warp glaze httplib)
+FetchContent_MakeAvailable(warp glaze)
 
 if(NOT TARGET watcher_lib)
     add_library(watcher_lib INTERFACE)
@@ -92,7 +88,6 @@ target_precompile_headers(remote-scan PRIVATE
     <string_view>
 
     # Third-Party
-    <httplib.h>
     <glaze/glaze.hpp>
     <watcher/watcher.hpp>
 )
@@ -103,6 +98,5 @@ target_include_directories(remote-scan PRIVATE include src)
 target_link_libraries(remote-scan PRIVATE
     warp::warp
     glaze::glaze
-    httplib::httplib
     watcher_lib
 )
