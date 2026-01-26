@@ -42,8 +42,10 @@ endif()
 
 set(REMOTESCAN_SOURCES
 	src/config-reader/config-reader.cpp
+    src/file-monitor.cpp
 	src/main.cpp
 	src/remote-scan.cpp
+    src/scan.cpp
 )
 
 # 6. CREATE THE TARGET (Only call this ONCE)
