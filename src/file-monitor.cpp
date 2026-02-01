@@ -22,24 +22,24 @@ namespace remote_scan
       for (const auto& plexServer : configReader_->GetPlexServers())
       {
          plexConfigs.emplace_back(warp::ServerConfig{
-            .server_name = plexServer.name,
+            .serverName = plexServer.name,
             .url = plexServer.url,
-            .api_key = plexServer.apiKey,
-            .tracker_url = "",
-            .tracker_api_key = "",
-            .media_path = ""});
+            .apiKey = plexServer.apiKey,
+            .trackerUrl = "",
+            .trackerApiKey = "",
+            .mediaPath = ""});
       }
 
       std::vector<warp::ServerConfig> embyConfigs;
       for (const auto& embyServer : configReader_->GetEmbyServers())
       {
          embyConfigs.emplace_back(warp::ServerConfig{
-            .server_name = embyServer.name,
+            .serverName = embyServer.name,
             .url = embyServer.url,
-            .api_key = embyServer.apiKey,
-            .tracker_url = "",
-            .tracker_api_key = "",
-            .media_path = ""});
+            .apiKey = embyServer.apiKey,
+            .trackerUrl = "",
+            .trackerApiKey = "",
+            .mediaPath = ""});
       }
       apiManager_ = std::make_unique<warp::ApiManager>(REMOTE_SCAN_NAME, REMOTE_SCAN_VERSION, plexConfigs, embyConfigs);
 
@@ -161,7 +161,7 @@ namespace remote_scan
                             warp::GetAnsiText(">>>", ANSI_MONITOR_PROCESSED),
                             warp::GetTag("monitor", monitor.scanName),
                             syncServers,
-                            warp::GetTag("folder", path.displayFolder));
+                            warp::GetTag("folder", path.displayFolder.generic_string()));
          }
       }
       else
@@ -227,12 +227,12 @@ namespace remote_scan
       warp::log::Info("Monitor thread has exited");
    }
 
-   void FileMonitor::LogMonitorAdded(std::string_view scanName, std::string_view displayFolder)
+   void FileMonitor::LogMonitorAdded(std::string_view scanName, const std::filesystem::path& displayFolder)
    {
       warp::log::Info("{} Scan moved to {} {}",
                       warp::GetAnsiText("-->", ANSI_MONITOR_ADDED),
                       warp::GetTag("monitor", scanName),
-                      warp::GetTag("folder", displayFolder));
+                      warp::GetTag("folder", displayFolder.generic_string()));
    }
 
    void FileMonitor::AddFileMonitor(const FileMonitorData& fileMonitor)
@@ -256,14 +256,14 @@ namespace remote_scan
             return;
          }
 
-         monitorIter->lastPath = fileMonitor.path.string();
+         monitorIter->lastPath = fileMonitor.path;
 
          auto pathIter = std::ranges::find_if(monitorIter->paths,
              [&fileMonitor](const auto& monitorPath) { return monitorPath.path == fileMonitor.path; });
 
          if (pathIter == monitorIter->paths.end())
          {
-            auto& newPath = monitorIter->paths.emplace_back(fileMonitor.path, warp::GetDisplayFolder(fileMonitor.path.string()));
+            auto& newPath = monitorIter->paths.emplace_back(fileMonitor.path, warp::GetDisplayFolder(fileMonitor.path));
             LogMonitorAdded(fileMonitor.scanName, newPath.displayFolder);
          }
       }
@@ -276,7 +276,7 @@ namespace remote_scan
          newMonitor.destroy = fileMonitor.destroy;
          newMonitor.lastPath = fileMonitor.path;
 
-         auto& newPath = newMonitor.paths.emplace_back(fileMonitor.path, warp::GetDisplayFolder(fileMonitor.path.string()));
+         auto& newPath = newMonitor.paths.emplace_back(fileMonitor.path, warp::GetDisplayFolder(fileMonitor.path));
          LogMonitorAdded(fileMonitor.scanName, newPath.displayFolder);
       }
 

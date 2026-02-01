@@ -2,6 +2,7 @@
 
 #include <glaze/glaze.hpp>
 
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -77,7 +78,7 @@ namespace remote_scan
 
    struct ScanConfigPath
    {
-      std::string path;
+      std::filesystem::path path;
 
       struct glaze
       {
@@ -109,7 +110,7 @@ namespace remote_scan
 
    struct RemoteScanIgnoreFolder
    {
-      std::string folder;
+      std::filesystem::path folder;
 
       struct glaze
       {

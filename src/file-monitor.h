@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -41,7 +42,7 @@ namespace remote_scan
       struct ActiveMonitorPaths
       {
          std::filesystem::path path;
-         std::string displayFolder;
+         std::filesystem::path displayFolder;
       };
 
       struct ActiveMonitor
@@ -58,7 +59,7 @@ namespace remote_scan
       bool GetScanPathValid(const std::filesystem::path& path);
       bool GetFileExtensionValid(const std::filesystem::path& filename);
 
-      void LogMonitorAdded(std::string_view scanName, std::string_view displayFolder);
+      void LogMonitorAdded(std::string_view scanName, const std::filesystem::path& displayFolder);
       void AddFileMonitor(const FileMonitorData& fileMonitor);
 
       void LogServerLibraryIssue(std::string_view serverType, const ScanLibraryConfig& library);
@@ -68,7 +69,7 @@ namespace remote_scan
       std::shared_ptr<ConfigReader> configReader_;
       std::unique_ptr<warp::ApiManager> apiManager_;
 
-      std::vector<std::string> ignoreFolders_;
+      std::vector<std::filesystem::path> ignoreFolders_;
       std::unordered_set<std::string> validExtensions_;
 
       // Synchronization

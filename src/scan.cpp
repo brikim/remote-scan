@@ -47,7 +47,7 @@ namespace remote_scan
                      warp::log::Info("[TEST] {} {} {}",
                                      warp::GetTag("effect", wtr::to<std::string>(e.effect_type)),
                                      warp::GetTag("type", wtr::to<std::string>(e.path_type)),
-                                     warp::GetTag("path", e.path_name.string()));
+                                     warp::GetTag("path", e.path_name.generic_string()));
 
                   }
 
@@ -63,7 +63,7 @@ namespace remote_scan
                return true;
             });
 
-            warp::log::Trace("Started watch for {} on path {}", config.name, pathConfig.path);
+            warp::log::Trace("Started watch for {} on path {}", config.name, pathConfig.path.generic_string());
          }
       }
    }
