@@ -245,8 +245,7 @@ namespace remote_scan
       if (monitorIter != activeMonitors_.end())
       {
          auto now = std::chrono::system_clock::now();
-         auto msSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(
-             now - monitorIter->time).count();
+         auto msSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(now - monitorIter->time).count();
 
          monitorIter->time = now;
          monitorIter->destroy = monitorIter->destroy || fileMonitor.destroy;
