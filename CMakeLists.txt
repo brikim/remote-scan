@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25...3.30)
 
-# 1. SILENCE DEPRECATION WARNINGS (Must be before project())
+# 1. SILENCE DEPRECATION WARNINGS
 set(CMAKE_POLICY_DEFAULT_CMP0000 NEW)
 
 project(remote-scan LANGUAGES CXX)
@@ -19,39 +19,34 @@ check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
 include(FetchContent)
 include(Dependencies.cmake)
 
-FetchContent_Declare(warp     GIT_REPOSITORY ${WARP_REPO}    GIT_TAG ${WARP_VERSION})
-FetchContent_Declare(glaze    GIT_REPOSITORY ${GLAZE_REPO}   GIT_TAG ${GLAZE_VERSION})
+# Find Threads globally (Required for watcher on both Windows and Linux)
+find_package(Threads REQUIRED)
 
-FetchContent_MakeAvailable(warp glaze)
+# Disable watcher's extra targets to prevent Ninja build collisions
+set(BUILD_LIB OFF CACHE BOOL "" FORCE)
+set(BUILD_BIN OFF CACHE BOOL "" FORCE)
+set(BUILD_PKG_CONFIG OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 
-if(NOT TARGET watcher_lib)
-    add_library(watcher_lib INTERFACE)
-    set_target_properties(watcher_lib PROPERTIES 
-       VERSION 0.14.3
-       GITHUB_URL "https://github.com/e-dant/watcher"
-    )
-    target_include_directories(watcher_lib INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/external)
-    target_compile_features(watcher_lib INTERFACE cxx_std_20)
+FetchContent_Declare(warp    GIT_REPOSITORY ${WARP_REPO}    GIT_TAG ${WARP_VERSION})
+FetchContent_Declare(glaze   GIT_REPOSITORY ${GLAZE_REPO}   GIT_TAG ${GLAZE_VERSION})
+FetchContent_Declare(watcher GIT_REPOSITORY ${WATCHER_REPO} GIT_TAG ${WATCHER_VERSION})
 
-    # On Linux, the library needs threading support
-    if(UNIX)
-        find_package(Threads REQUIRED)
-        target_link_libraries(watcher_lib INTERFACE Threads::Threads)
-    endif()
-endif()
+FetchContent_MakeAvailable(warp glaze watcher)
 
+# 5. SOURCE DEFINITIONS
 set(REMOTESCAN_SOURCES
-	src/config-reader/config-reader.cpp
+    src/config-reader/config-reader.cpp
     src/file-monitor.cpp
-	src/main.cpp
-	src/remote-scan.cpp
+    src/main.cpp
+    src/remote-scan.cpp
     src/scan.cpp
 )
 
-# 6. CREATE THE TARGET (Only call this ONCE)
+# 6. CREATE THE TARGET
 add_executable(remote-scan ${REMOTESCAN_SOURCES})
 
-# 7. APPLY TARGET PROPERTIES (Must be AFTER add_executable)
+# 7. APPLY TARGET PROPERTIES
 if(ipo_supported)
     set_property(TARGET remote-scan PROPERTY 
         INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE
@@ -75,7 +70,7 @@ if(UNIX)
     target_link_libraries(remote-scan PRIVATE OpenSSL::SSL OpenSSL::Crypto)
     target_compile_definitions(remote-scan PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
 else()
-    # Apply MSVC Link-Time Code Generation (The Windows version of LTO)
+    # Apply MSVC Link-Time Code Generation
     target_link_options(remote-scan PRIVATE $<$<CONFIG:Release>:/LTCG>)
 endif()
 
@@ -91,14 +86,18 @@ target_precompile_headers(remote-scan PRIVATE
 
     # Third-Party
     <glaze/glaze.hpp>
-    <watcher/watcher.hpp>
+    <wtr/watcher.hpp>
 )
 
 # 10. INCLUDES & LINKING
-target_include_directories(remote-scan PRIVATE include src)
+target_include_directories(remote-scan PRIVATE include 
+    src
+    "${watcher_SOURCE_DIR}/include"
+)
 
 target_link_libraries(remote-scan PRIVATE
     warp::warp
     glaze::glaze
-    watcher_lib
+    wtr.hdr_watcher
+    Threads::Threads
 )
