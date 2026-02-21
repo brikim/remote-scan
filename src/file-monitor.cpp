@@ -212,7 +212,7 @@ namespace remote_scan
       {
          for (auto& path : monitor.paths)
          {
-            auto pathToLog = path.fileName.empty() ? path.path : path.path / path.fileName;
+            auto pathToLog = path.fileName.empty() ? path.displayFolder : path.displayFolder / path.fileName;
             warp::log::Info("{}{} Moved {} to target {} {}",
                             scanConfig.dryRun ? "[DRY RUN] " : "",
                             warp::GetAnsiText(">>>", ANSI_MONITOR_PROCESSED),
@@ -286,7 +286,7 @@ namespace remote_scan
 
    void FileMonitor::LogMonitorAdded(std::string_view scanName, const ActiveMonitorPath& monitor)
    {
-      auto pathToLog = monitor.fileName.empty() ? monitor.path : monitor.path / monitor.fileName;
+      auto pathToLog = monitor.fileName.empty() ? monitor.displayFolder : monitor.displayFolder / monitor.fileName;
 
       std::string effectType;
       switch (monitor.effect)
