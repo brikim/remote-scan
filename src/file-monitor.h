@@ -58,6 +58,7 @@ namespace remote_scan
       void Monitor(std::stop_token stopToken);
 
       bool GetScanPathValid(const std::filesystem::path& path);
+      bool GetFileImage(const std::filesystem::path& filename);
       bool GetFileExtensionValid(const std::filesystem::path& filename);
 
       void LogMonitorAdded(std::string_view scanName,
@@ -76,6 +77,7 @@ namespace remote_scan
       std::unique_ptr<warp::ApiManager> apiManager_;
 
       std::vector<std::filesystem::path> ignoreFolders_;
+      std::unordered_set<std::string> validImageExtensions_;
       std::unordered_set<std::string> validExtensions_;
 
       // Synchronization

@@ -92,4 +92,9 @@ namespace remote_scan
    {
       return configData_.remoteScan.validFileExtensions;
    }
+
+   const std::vector<RemoteScanFileExtension>& ConfigReader::GetImageExtensions() const
+   {
+      return configData_.remoteScan.imageExtensions;
+   }
 }

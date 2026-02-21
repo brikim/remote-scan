@@ -49,6 +49,17 @@ namespace remote_scan
          ignoreFolders_.emplace_back(ignoreFolder.folder);
       }
 
+      const auto& imageExtensions = configReader_->GetImageExtensions();
+      for (const auto& ext : imageExtensions)
+      {
+         auto lowerExt = warp::ToLower(ext.extension);
+         if (!lowerExt.empty() && lowerExt[0] != '.')
+         {
+            lowerExt = "." + lowerExt;
+         }
+         validImageExtensions_.insert(lowerExt);
+      }
+
       const auto& validFileExtensions = configReader_->GetValidFileExtensions();
       for (const auto& ext : validFileExtensions)
       {
@@ -155,9 +166,18 @@ namespace remote_scan
       auto basePath = GetBasePath(monitor.scanName);
       if (basePath.empty()) return false;
 
+      bool imagesUpdated = false;
       std::vector<warp::EmbyMediaUpdate> mediaUpdates;
       for (const auto& path : monitor.paths)
       {
+         if (!path.fileName.empty() && GetFileImage(path.fileName))
+         {
+            imagesUpdated = true;
+
+            // If image updates were detected we are going to do a library scan so just break out of the loop
+            break;
+         }
+
          warp::EmbyUpdateType embyUpdateType;
          switch (path.effect)
          {
@@ -174,7 +194,25 @@ namespace remote_scan
             .type = embyUpdateType
          });
       }
-      embyApi->SetMediaScan(mediaUpdates);
+
+      // If images were updated we need to do a library scan to ensure they are processed, media updates alone won't trigger image processing
+      if (imagesUpdated)
+      {
+         auto libraryId{embyApi->GetLibraryId(library.library)};
+         if (!libraryId)
+         {
+            LogServerLibraryIssue(warp::GetFormattedPlex(), library);
+            return false;
+         }
+         embyApi->SetLibraryScan(*libraryId);
+      }
+      else
+      {
+         // else command a media scan for any media file updates, this will ensure the media is refreshed and any needed metadata updates are done, but won't trigger a full library scan
+         if (!mediaUpdates.empty())
+            embyApi->SetMediaScan(mediaUpdates);
+      }
+
       return true;
    }
 
@@ -367,6 +405,15 @@ namespace remote_scan
       });
    }
 
+   bool FileMonitor::GetFileImage(const std::filesystem::path& filename)
+   {
+      auto ext = filename.extension();
+      if (ext.empty()) return false;
+
+      std::string lowerExt = warp::ToLower(ext.string());
+      return validImageExtensions_.contains(lowerExt);
+   }
+
    bool FileMonitor::GetFileExtensionValid(const std::filesystem::path& filename)
    {
       if (validExtensions_.empty()) return true;
@@ -382,7 +429,10 @@ namespace remote_scan
    {
       // Is the scan path valid and this is a destroy or the file being added has a valid extension
       if (GetScanPathValid(fileMonitor.path)
-          && (fileMonitor.effect == EffectType::DESTROY || fileMonitor.isDirectory || GetFileExtensionValid(fileMonitor.filename)))
+          && (fileMonitor.effect == EffectType::DESTROY
+              || fileMonitor.isDirectory
+              || GetFileExtensionValid(fileMonitor.filename)
+              || GetFileImage(fileMonitor.filename)))
       {
          AddFileMonitor(fileMonitor);
       }

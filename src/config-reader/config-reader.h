@@ -21,6 +21,7 @@ namespace remote_scan
       [[nodiscard]] const GotifyLoggingConfig& GetGotifyLogging() const;
       [[nodiscard]] const RemoteScanConfig& GetRemoteScanConfig() const;
       [[nodiscard]] const std::vector<RemoteScanIgnoreFolder>& GetIgnoreFolders() const;
+      [[nodiscard]] const std::vector<RemoteScanFileExtension>& GetImageExtensions() const;
       [[nodiscard]] const std::vector<RemoteScanFileExtension>& GetValidFileExtensions() const;
 
    private:

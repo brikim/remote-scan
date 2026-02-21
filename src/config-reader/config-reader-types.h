@@ -144,6 +144,7 @@ namespace remote_scan
       std::vector<ScanConfig> scans;
       std::vector<RemoteScanIgnoreFolder> ignoreFolders;
       std::vector<RemoteScanFileExtension> validFileExtensions;
+      std::vector<RemoteScanFileExtension> imageExtensions;
 
       struct glaze
       {
@@ -153,7 +154,8 @@ namespace remote_scan
             "seconds_between_notifies", &RemoteScanConfig::secondsBetweenNotifies,
             "scans", &RemoteScanConfig::scans,
             "ignore_folders", &RemoteScanConfig::ignoreFolders,
-            "valid_file_extensions", &RemoteScanConfig::validFileExtensions
+            "valid_file_extensions", &RemoteScanConfig::validFileExtensions,
+            "image_extensions", &RemoteScanConfig::imageExtensions
          );
       };
    };
