@@ -31,11 +31,12 @@ namespace remote_scan
       bool testLogEnabled = false;
       if (std::getenv("REMOTE_SCAN_TEST_LOGS")) testLogEnabled = true;
 
-      for (const auto& pathConfig : config.paths)
+      for (const auto& pathConfig : config.pathsFromBase)
       {
-         if (std::filesystem::exists(pathConfig.path))
+         auto fullPath = config.basePath / pathConfig.path;
+         if (std::filesystem::exists(fullPath))
          {
-            pimpl_->activeWatches.emplace_back(pathConfig.path, [fileMonitorFunc, testLogEnabled, scanName = config.name](const wtr::event& e) {
+            pimpl_->activeWatches.emplace_back(fullPath, [fileMonitorFunc, testLogEnabled, scanName = config.name](const wtr::event& e) {
                if ((e.effect_type == wtr::event::effect_type::rename ||
                     e.effect_type == wtr::event::effect_type::create ||
                     e.effect_type == wtr::event::effect_type::modify ||
@@ -51,19 +52,36 @@ namespace remote_scan
 
                   }
 
+                  EffectType effect;
+                  switch (e.effect_type)
+                  {
+                     case wtr::event::effect_type::rename:
+                        effect = EffectType::RENAME;
+                        break;
+                     case wtr::event::effect_type::create:
+                        effect = EffectType::CREATE;
+                        break;
+                     case wtr::event::effect_type::destroy:
+                        effect = EffectType::DESTROY;
+                        break;
+                     default:
+                        effect = EffectType::MODIFY;
+                  }
+
                   bool isDirectory = e.path_type == wtr::event::path_type::dir;
+
                   fileMonitorFunc(FileMonitorData{
                      .scanName = scanName,
                      .path = isDirectory ? e.path_name : e.path_name.parent_path(),
                      .filename = isDirectory ? "" : e.path_name.filename(),
                      .isDirectory = isDirectory,
-                     .destroy = e.effect_type == wtr::event::effect_type::destroy
+                     .effect = effect
                   });
                }
                return true;
             });
 
-            warp::log::Trace("Started watch for {} on path {}", config.name, pathConfig.path.generic_string());
+            warp::log::Trace("Started watch for {} on path {}", config.name, fullPath.generic_string());
          }
       }
    }

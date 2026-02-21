@@ -18,10 +18,10 @@ namespace remote_scan
    FileMonitor::FileMonitor(std::shared_ptr<ConfigReader> configReader)
       : configReader_(configReader)
    {
-      std::vector<warp::ServerConfig> plexConfigs;
+      warp::ApiManagerConfig apiManagerConfig;
       for (const auto& plexServer : configReader_->GetPlexServers())
       {
-         plexConfigs.emplace_back(warp::ServerConfig{
+         apiManagerConfig.plexConfig.servers.emplace_back(warp::ServerConfig{
             .serverName = plexServer.name,
             .url = plexServer.url,
             .apiKey = plexServer.apiKey,
@@ -30,10 +30,9 @@ namespace remote_scan
             .mediaPath = ""});
       }
 
-      std::vector<warp::ServerConfig> embyConfigs;
       for (const auto& embyServer : configReader_->GetEmbyServers())
       {
-         embyConfigs.emplace_back(warp::ServerConfig{
+         apiManagerConfig.embyConfig.servers.emplace_back(warp::ServerConfig{
             .serverName = embyServer.name,
             .url = embyServer.url,
             .apiKey = embyServer.apiKey,
@@ -41,7 +40,8 @@ namespace remote_scan
             .trackerApiKey = "",
             .mediaPath = ""});
       }
-      apiManager_ = std::make_unique<warp::ApiManager>(REMOTE_SCAN_NAME, REMOTE_SCAN_VERSION, plexConfigs, embyConfigs);
+
+      apiManager_ = std::make_unique<warp::ApiManager>(REMOTE_SCAN_NAME, REMOTE_SCAN_VERSION, apiManagerConfig);
 
       const auto& ignoreFolders = configReader_->GetIgnoreFolders();
       for (const auto& ignoreFolder : ignoreFolders)
@@ -101,6 +101,83 @@ namespace remote_scan
                          warp::GetTag("library", library.library));
    }
 
+   std::filesystem::path FileMonitor::GetBasePath(std::string_view scanName) const
+   {
+      const auto& scans = configReader_->GetRemoteScanConfig().scans;
+      auto scanIter{std::ranges::find_if(scans, [scanName](const auto& scan) { return scan.name == scanName; })};
+      if (scanIter != scans.end())
+      {
+         return scanIter->basePath;
+      }
+      return {};
+   }
+
+   bool FileMonitor::NotifyPlex(const ActiveMonitor& monitor, const ScanLibraryConfig& library)
+   {
+      auto* plexApi = apiManager_->GetPlexApi(library.server);
+      if (!plexApi || plexApi->GetValid() == false)
+      {
+         LogServerNotAvailable(warp::GetFormattedPlex(), library);
+         return false;
+      }
+
+      auto libraryId{plexApi->GetLibraryId(library.library)};
+      if (!libraryId)
+      {
+         LogServerLibraryIssue(warp::GetFormattedPlex(), library);
+         return false;
+      }
+
+      auto basePath = GetBasePath(monitor.scanName);
+      if (basePath.empty()) return false;
+
+      std::vector<std::filesystem::path> notifiedPaths;
+      for (const auto& path : monitor.paths)
+      {
+         if (std::ranges::find(notifiedPaths, path.path) == notifiedPaths.end())
+         {
+            plexApi->SetLibraryScanPath(*libraryId, warp::ReplaceMediaPath(path.path, basePath, library.mediaPath));
+            notifiedPaths.emplace_back(path.path);
+         }
+      }
+      return true;
+   }
+
+   bool FileMonitor::NotifyEmby(const ActiveMonitor& monitor, const ScanLibraryConfig& library)
+   {
+      auto* embyApi = apiManager_->GetEmbyApi(library.server);
+      if (!embyApi || embyApi->GetValid() == false)
+      {
+         LogServerNotAvailable(warp::GetFormattedEmby(), library);
+         return false;
+      }
+
+      auto basePath = GetBasePath(monitor.scanName);
+      if (basePath.empty()) return false;
+
+      std::vector<warp::EmbyMediaUpdate> mediaUpdates;
+      for (const auto& path : monitor.paths)
+      {
+         warp::EmbyUpdateType embyUpdateType;
+         switch (path.effect)
+         {
+            case EffectType::CREATE: embyUpdateType = warp::EmbyUpdateType::CREATED; break;
+            case EffectType::DESTROY: embyUpdateType = warp::EmbyUpdateType::DELETED; break;
+            default: embyUpdateType = warp::EmbyUpdateType::MODIFIED; break;
+
+               break;
+         }
+
+         auto filePathToUse = path.fileName.empty() ? path.path : path.path / path.fileName;
+         mediaUpdates.emplace_back(warp::EmbyMediaUpdate{
+            .path = warp::ReplaceMediaPath(filePathToUse, basePath, library.mediaPath),
+            .type = embyUpdateType
+         });
+      }
+      embyApi->SetMediaScan(mediaUpdates);
+      return true;
+   }
+
    void FileMonitor::NotifyMediaServers(const ActiveMonitor& monitor)
    {
       const auto& scanConfig = configReader_->GetRemoteScanConfig();
@@ -115,38 +192,17 @@ namespace remote_scan
       const auto& scan{*scanIter};
       std::string syncServers;
 
-      auto notifyServer = [this](auto* api, auto type, const auto& library) {
-         if (api->GetValid())
-         {
-            auto libraryId{api->GetLibraryId(library.library)};
-            if (libraryId)
-            {
-               api->SetLibraryScan(*libraryId);
-               return true;
-            }
-            else
-            {
-               LogServerLibraryIssue(warp::GetFormattedApiName(type), library);
-            }
-         }
-         else
-         {
-            LogServerNotAvailable(warp::GetFormattedApiName(type), library);
-         }
-         return false;
-      };
-
       for (const auto& plexLibrary : scan.plexLibraries)
       {
-         if (notifyServer(apiManager_->GetPlexApi(plexLibrary.server), warp::ApiType::PLEX, plexLibrary))
+         if (NotifyPlex(monitor, plexLibrary))
          {
-            syncServers = warp::BuildSyncServerString(syncServers, warp::GetFormattedApiName(warp::ApiType::PLEX), plexLibrary.server);
+            syncServers = warp::BuildSyncServerString(syncServers, warp::GetFormattedPlex(), plexLibrary.server);
          }
       }
 
       for (const auto& embyLibrary : scan.embyLibraries)
       {
-         if (notifyServer(apiManager_->GetEmbyApi(embyLibrary.server), warp::ApiType::EMBY, embyLibrary))
+         if (NotifyEmby(monitor, embyLibrary))
          {
             syncServers = warp::BuildSyncServerString(syncServers, warp::GetFormattedApiName(warp::ApiType::EMBY), embyLibrary.server);
          }
@@ -156,12 +212,13 @@ namespace remote_scan
       {
          for (auto& path : monitor.paths)
          {
+            auto pathToLog = path.fileName.empty() ? path.path : path.path / path.fileName;
             warp::log::Info("{}{} Moved {} to target {} {}",
                             scanConfig.dryRun ? "[DRY RUN] " : "",
                             warp::GetAnsiText(">>>", ANSI_MONITOR_PROCESSED),
                             warp::GetTag("monitor", monitor.scanName),
                             syncServers,
-                            warp::GetTag("folder", path.displayFolder.generic_string()));
+                            warp::GetTag("media", pathToLog.generic_string()));
          }
       }
       else
@@ -227,12 +284,22 @@ namespace remote_scan
       warp::log::Info("Monitor thread has exited");
    }
 
-   void FileMonitor::LogMonitorAdded(std::string_view scanName, const std::filesystem::path& displayFolder)
+   void FileMonitor::LogMonitorAdded(std::string_view scanName, const ActiveMonitorPath& monitor)
    {
-      warp::log::Info("{} Scan moved to {} {}",
+      auto pathToLog = monitor.fileName.empty() ? monitor.path : monitor.path / monitor.fileName;
+
+      std::string effectType;
+      switch (monitor.effect)
+      {
+         case EffectType::CREATE: effectType = "Created"; break;
+         case EffectType::DESTROY: effectType = "Deleted"; break;
+         default: effectType = "Modified"; break;
+      }
+      warp::log::Info("{} Scan moved to {} {} {}",
                       warp::GetAnsiText("-->", ANSI_MONITOR_ADDED),
                       warp::GetTag("monitor", scanName),
-                      warp::GetTag("folder", displayFolder.generic_string()));
+                      warp::GetTag("effect", effectType),
+                      warp::GetTag("media", pathToLog.generic_string()));
    }
 
    void FileMonitor::AddFileMonitor(const FileMonitorData& fileMonitor)
@@ -248,9 +315,8 @@ namespace remote_scan
          auto msSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(now - monitorIter->time).count();
 
          monitorIter->time = now;
-         monitorIter->destroy = monitorIter->destroy || fileMonitor.destroy;
 
-         if (!fileMonitor.destroy && msSinceLastUpdate < 500 && fileMonitor.path == monitorIter->lastPath)
+         if (fileMonitor.effect == EffectType::MODIFY && msSinceLastUpdate < 500 && fileMonitor.path == monitorIter->lastPath)
          {
             return;
          }
@@ -258,12 +324,17 @@ namespace remote_scan
          monitorIter->lastPath = fileMonitor.path;
 
          auto pathIter = std::ranges::find_if(monitorIter->paths,
-             [&fileMonitor](const auto& monitorPath) { return monitorPath.path == fileMonitor.path; });
+             [&fileMonitor](const auto& monitorPath) { return monitorPath.path == fileMonitor.path && monitorPath.fileName == fileMonitor.filename; });
 
          if (pathIter == monitorIter->paths.end())
          {
-            auto& newPath = monitorIter->paths.emplace_back(fileMonitor.path, warp::GetDisplayFolder(fileMonitor.path));
-            LogMonitorAdded(fileMonitor.scanName, newPath.displayFolder);
+            auto& newPath = monitorIter->paths.emplace_back(ActiveMonitorPath{
+               .path = fileMonitor.path,
+               .fileName = fileMonitor.filename,
+               .effect = fileMonitor.effect,
+               .displayFolder = warp::GetDisplayFolder(fileMonitor.path)
+            });
+            LogMonitorAdded(fileMonitor.scanName, newPath);
          }
       }
       else
@@ -272,11 +343,15 @@ namespace remote_scan
          auto& newMonitor = activeMonitors_.emplace_back();
          newMonitor.scanName = fileMonitor.scanName;
          newMonitor.time = std::chrono::system_clock::now();
-         newMonitor.destroy = fileMonitor.destroy;
          newMonitor.lastPath = fileMonitor.path;
 
-         auto& newPath = newMonitor.paths.emplace_back(fileMonitor.path, warp::GetDisplayFolder(fileMonitor.path));
-         LogMonitorAdded(fileMonitor.scanName, newPath.displayFolder);
+         auto& newPath = newMonitor.paths.emplace_back(ActiveMonitorPath{
+            .path = fileMonitor.path,
+            .fileName = fileMonitor.filename,
+            .effect = fileMonitor.effect,
+            .displayFolder = warp::GetDisplayFolder(fileMonitor.path)
+         });
+         LogMonitorAdded(fileMonitor.scanName, newPath);
       }
 
       lock.unlock();
@@ -307,7 +382,7 @@ namespace remote_scan
    {
       // Is the scan path valid and this is a destroy or the file being added has a valid extension
       if (GetScanPathValid(fileMonitor.path)
-          && (fileMonitor.destroy || fileMonitor.isDirectory || GetFileExtensionValid(fileMonitor.filename)))
+          && (fileMonitor.effect == EffectType::DESTROY || fileMonitor.isDirectory || GetFileExtensionValid(fileMonitor.filename)))
       {
          AddFileMonitor(fileMonitor);
       }

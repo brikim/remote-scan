@@ -66,12 +66,14 @@ namespace remote_scan
    {
       std::string server;
       std::string library;
+      std::string mediaPath;
 
       struct glaze
       {
          static constexpr auto value = glz::object(
             "server_name", &ScanLibraryConfig::server,
-            "library", &ScanLibraryConfig::library
+            "library", &ScanLibraryConfig::library,
+            "media_path", &ScanLibraryConfig::mediaPath
          );
       };
    };
@@ -94,7 +96,8 @@ namespace remote_scan
       std::vector<ScanLibraryConfig> plexLibraries;
       std::vector<ScanLibraryConfig> embyLibraries;
       std::vector<ScanLibraryConfig> jellyfinLibraries;
-      std::vector<ScanConfigPath> paths;
+      std::filesystem::path basePath;
+      std::vector<ScanConfigPath> pathsFromBase;
 
       struct glaze
       {
@@ -103,7 +106,8 @@ namespace remote_scan
             "plex", &ScanConfig::plexLibraries,
             "emby", &ScanConfig::embyLibraries,
             "jellyfin", &ScanConfig::jellyfinLibraries,
-            "paths", &ScanConfig::paths
+            "base_path", &ScanConfig::basePath,
+            "paths_from_base", &ScanConfig::pathsFromBase
          );
       };
    };

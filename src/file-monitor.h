@@ -39,9 +39,11 @@ namespace remote_scan
       void Process(const FileMonitorData& fileMonitor);
 
    private:
-      struct ActiveMonitorPaths
+      struct ActiveMonitorPath
       {
          std::filesystem::path path;
+         std::filesystem::path fileName;
+         EffectType effect{};
          std::filesystem::path displayFolder;
       };
 
@@ -49,9 +51,8 @@ namespace remote_scan
       {
          std::string scanName;
          std::chrono::system_clock::time_point time;
-         std::vector<ActiveMonitorPaths> paths;
+         std::vector<ActiveMonitorPath> paths;
          std::filesystem::path lastPath;
-         bool destroy{false};
       };
 
       void Monitor(std::stop_token stopToken);
@@ -59,11 +60,16 @@ namespace remote_scan
       bool GetScanPathValid(const std::filesystem::path& path);
       bool GetFileExtensionValid(const std::filesystem::path& filename);
 
-      void LogMonitorAdded(std::string_view scanName, const std::filesystem::path& displayFolder);
+      void LogMonitorAdded(std::string_view scanName,
+                           const ActiveMonitorPath& monitor);
       void AddFileMonitor(const FileMonitorData& fileMonitor);
 
       void LogServerLibraryIssue(std::string_view serverType, const ScanLibraryConfig& library);
       void LogServerNotAvailable(std::string_view serverType, const ScanLibraryConfig& library);
+
+      std::filesystem::path GetBasePath(std::string_view scanName) const;
+      bool NotifyPlex(const ActiveMonitor& monitor, const ScanLibraryConfig& library);
+      bool NotifyEmby(const ActiveMonitor& monitor, const ScanLibraryConfig& library);
       void NotifyMediaServers(const ActiveMonitor& monitor);
 
       std::shared_ptr<ConfigReader> configReader_;

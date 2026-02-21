@@ -1,5 +1,5 @@
 # Version Definitions
-set(WARP_VERSION     v2.0.21)
+set(WARP_VERSION     v2.0.22)
 set(GLAZE_VERSION    v7.0.2)
 set(WATCHER_VERSION  0.14.4)
 
