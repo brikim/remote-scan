@@ -80,45 +80,58 @@ namespace remote_scan
          {
             std::unique_lock lock(workLock_);
 
+            // If the queue is empty, wait indefinitely until data arrives or stop is requested.
+            if (activeMonitors_.empty())
+            {
+               workCv_.wait(lock, stopToken, [this] {
+                  return !activeMonitors_.empty();
+               });
+            }
+
+            // Always check stopToken after waking up from a wait.
+            if (stopToken.stop_requested()) break;
+
+            // Helper to calculate the earliest possible time we can process the oldest item.
             auto getNextWakeTime = [&]() -> std::chrono::system_clock::time_point {
-               if (activeMonitors_.empty())
-                  return std::chrono::system_clock::now() + std::chrono::hours(1);
+               if (activeMonitors_.empty()) return std::chrono::system_clock::now();
 
                auto oldest = std::ranges::min_element(activeMonitors_, {}, &ActiveMonitor::time);
-               std::chrono::system_clock::time_point readyAt = oldest->time + settleDelay;
-               std::chrono::system_clock::time_point throttleAt = lastNotifyTime_ + globalDelay;
+               auto readyAt = oldest->time + settleDelay;
+               auto throttleAt = lastNotifyTime_ + globalDelay;
                return (readyAt > throttleAt) ? readyAt : throttleAt;
             };
 
-            workCv_.wait_until(lock, stopToken, getNextWakeTime(), [this] {
-               return !activeMonitors_.empty();
-            });
+            auto wakeTime = getNextWakeTime();
+            auto now = std::chrono::system_clock::now();
 
-            if (stopToken.stop_requested()) break;
-
-            auto currentTime = std::chrono::system_clock::now();
-            auto nextWake = getNextWakeTime();
-            if (currentTime < nextWake)
+            // If the current time is before our calculated wake time, we must sleep.
+            if (now < wakeTime)
             {
-               continue;
-            }
+               workCv_.wait_until(lock, stopToken, wakeTime, [] { return false; });
 
-            // 3. Re-check conditions after waking up
-            if (!activeMonitors_.empty())
-            {
-               auto currentTime = std::chrono::system_clock::now();
-               auto oldestIter = std::ranges::min_element(activeMonitors_, {}, &ActiveMonitor::time);
+               if (stopToken.stop_requested()) break;
 
-               if (currentTime >= (oldestIter->time + settleDelay) &&
-                   currentTime >= (lastNotifyTime_ + globalDelay))
+               // Re-evaluate conditions after waking up.
+               // New items might have been added that pushed the 'wakeTime' further out.
+               now = std::chrono::system_clock::now();
+               if (activeMonitors_.empty() || now < getNextWakeTime())
                {
-                  monitorToProcess = std::move(*oldestIter);
-                  activeMonitors_.erase(oldestIter);
-                  lastNotifyTime_ = currentTime;
+                  continue; // Back to the start of the while loop to re-calculate.
                }
             }
-         } // Release lock
 
+            // If we are here, we have passed all throttle and settle checks.
+            auto oldestIter = std::ranges::min_element(activeMonitors_, {}, &ActiveMonitor::time);
+            if (oldestIter != activeMonitors_.end())
+            {
+               monitorToProcess = std::move(*oldestIter);
+               activeMonitors_.erase(oldestIter);
+               lastNotifyTime_ = std::chrono::system_clock::now();
+            }
+
+         } // Lock is released here.
+
+         // Perform the actual notification outside of the lock.
          if (monitorToProcess)
          {
             warp::log::Trace("Throttle passed. Notifying for: {}", monitorToProcess->scanName);
@@ -126,7 +139,7 @@ namespace remote_scan
          }
       }
 
-      warp::log::Info("Work thread has exited", __func__);
+      warp::log::Info("Work thread has exited");
    }
 
    void Monitor::LogMonitorAdded(std::string_view scanName, const ActiveMonitorPath& monitor)
