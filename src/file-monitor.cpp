@@ -371,14 +371,15 @@ namespace remote_scan
 
          monitorIter->lastPath = fileMonitor.path;
 
+         auto strippedFileName = GetStrippedFileName(fileMonitor.filename);
          auto pathIter = std::ranges::find_if(monitorIter->paths,
-             [&fileMonitor](const auto& monitorPath) { return monitorPath.path == fileMonitor.path && monitorPath.fileName == fileMonitor.filename; });
+             [&fileMonitor, &strippedFileName](const auto& monitorPath) { return monitorPath.path == fileMonitor.path && monitorPath.fileName == strippedFileName; });
 
          if (pathIter == monitorIter->paths.end())
          {
             auto& newPath = monitorIter->paths.emplace_back(ActiveMonitorPath{
                .path = fileMonitor.path,
-               .fileName = GetStrippedFileName(fileMonitor.filename),
+               .fileName = strippedFileName,
                .effect = fileMonitor.effect,
                .displayFolder = warp::GetDisplayFolder(fileMonitor.path)
             });
