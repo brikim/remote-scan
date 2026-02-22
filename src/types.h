@@ -2,9 +2,11 @@
 
 #include <warp/log/log-types.h>
 
+#include <chrono>
 #include <filesystem>
 #include <format>
 #include <string>
+#include <vector>
 
 namespace remote_scan
 {
@@ -26,5 +28,21 @@ namespace remote_scan
       std::filesystem::path filename;
       bool isDirectory;
       EffectType effect;
+   };
+
+   struct ActiveMonitorPath
+   {
+      std::filesystem::path path;
+      std::filesystem::path fileName;
+      EffectType effect{};
+      std::filesystem::path displayFullPath;
+   };
+
+   struct ActiveMonitor
+   {
+      std::string scanName;
+      std::chrono::system_clock::time_point time;
+      std::vector<ActiveMonitorPath> paths;
+      std::filesystem::path lastPath;
    };
 }

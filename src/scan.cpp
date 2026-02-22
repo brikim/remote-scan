@@ -52,11 +52,17 @@ namespace remote_scan
 
                   }
 
+                  auto pathName = e.path_name;
+
                   EffectType effect;
                   switch (e.effect_type)
                   {
                      case wtr::event::effect_type::rename:
                         effect = EffectType::RENAME;
+                        if (e.associated)
+                        {
+                           pathName = e.associated->path_name;
+                        }
                         break;
                      case wtr::event::effect_type::create:
                         effect = EffectType::CREATE;
@@ -68,12 +74,33 @@ namespace remote_scan
                         effect = EffectType::MODIFY;
                   }
 
-                  bool isDirectory = e.path_type == wtr::event::path_type::dir;
+                  bool isDirectory = false;
+                  if (e.effect_type != wtr::event::effect_type::destroy)
+                  {
+                     // If the item still exists, trust the OS check over the event metadata
+                     std::error_code ec;
+                     if (std::filesystem::is_directory(pathName, ec))
+                     {
+                        isDirectory = true;
+                     }
+                  }
+                  else
+                  {
+                     // For DESTROY events, the item is gone. 
+                     // We have to trust the watcher's metadata or assume based on extension.
+                     isDirectory = (e.path_type == wtr::event::path_type::dir);
+
+                     // Fallback: If it has no extension, it's very likely it was a directory
+                     if (!isDirectory && !pathName.has_extension())
+                     {
+                        isDirectory = true;
+                     }
+                  }
 
                   fileMonitorFunc(FileMonitorData{
                      .scanName = scanName,
-                     .path = isDirectory ? e.path_name : e.path_name.parent_path(),
-                     .filename = isDirectory ? "" : e.path_name.filename(),
+                     .path = isDirectory ? pathName : pathName.parent_path(),
+                     .filename = isDirectory ? "" : pathName.filename(),
                      .isDirectory = isDirectory,
                      .effect = effect
                   });

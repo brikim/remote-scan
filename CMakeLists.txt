@@ -37,8 +37,9 @@ FetchContent_MakeAvailable(warp glaze watcher)
 # 5. SOURCE DEFINITIONS
 set(REMOTESCAN_SOURCES
     src/config-reader/config-reader.cpp
-    src/file-monitor.cpp
+    src/monitor.cpp
     src/main.cpp
+    src/notify.cpp
     src/remote-scan.cpp
     src/scan.cpp
 )

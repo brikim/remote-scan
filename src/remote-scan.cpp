@@ -18,7 +18,7 @@ namespace remote_scan
    };
 
    RemoteScan::RemoteScan(std::shared_ptr<ConfigReader> configReader)
-      : fileMonitor_(configReader)
+      : monitor_(configReader)
       , scanConfig_(configReader->GetRemoteScanConfig())
    {
       if (scanConfig_.dryRun)
@@ -31,14 +31,14 @@ namespace remote_scan
    {
       for (const auto& scan : scanConfig_.scans)
       {
-         scans_.emplace_back(std::make_unique<Scan>(scan, [this](const FileMonitorData& data) { fileMonitor_.Process(data); }));
+         scans_.emplace_back(std::make_unique<Scan>(scan, [this](const FileMonitorData& data) { monitor_.Process(data); }));
       }
    }
 
    void RemoteScan::AddTasksToScheduler()
    {
       std::vector<warp::Task> apiTasks;
-      fileMonitor_.GetTasks(apiTasks);
+      monitor_.GetTasks(apiTasks);
       for (const auto& task : apiTasks)
       {
          cronScheduler_.Add(task);
@@ -53,7 +53,7 @@ namespace remote_scan
          scan->Shutdown();
       }
 
-      fileMonitor_.Shutdown();
+      monitor_.Shutdown();
    }
 
    void RemoteScan::Run()
@@ -70,7 +70,7 @@ namespace remote_scan
       // Setup all the scans from the configuration
       SetupScans();
 
-      fileMonitor_.Run();
+      monitor_.Run();
 
       // Hold the main thread until shutdown
       std::mutex m;

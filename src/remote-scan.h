@@ -1,7 +1,7 @@
 #pragma once
 
 #include "config-reader/config-reader-types.h"
-#include "file-monitor.h"
+#include "monitor.h"
 #include "scan.h"
 
 #include <warp/scheduler/cron-scheduler.h>
@@ -32,7 +32,7 @@ namespace remote_scan
       void CleanupShutdown();
 
       warp::CronScheduler cronScheduler_;
-      FileMonitor fileMonitor_;
+      Monitor monitor_;
       RemoteScanConfig scanConfig_;
 
       std::vector<std::unique_ptr<Scan>> scans_;
