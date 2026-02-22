@@ -68,6 +68,8 @@ namespace remote_scan
       void LogServerLibraryIssue(std::string_view serverType, const ScanLibraryConfig& library);
       void LogServerNotAvailable(std::string_view serverType, const ScanLibraryConfig& library);
 
+      std::filesystem::path GetStrippedFileName(const std::filesystem::path& originalPath);
+
       std::filesystem::path GetBasePath(std::string_view scanName) const;
       bool NotifyPlex(const ActiveMonitor& monitor, const ScanLibraryConfig& library);
       bool NotifyEmby(const ActiveMonitor& monitor, const ScanLibraryConfig& library);
@@ -79,6 +81,7 @@ namespace remote_scan
       std::vector<std::filesystem::path> ignoreFolders_;
       std::unordered_set<std::string> validImageExtensions_;
       std::unordered_set<std::string> validExtensions_;
+      std::unordered_set<std::string> stripExtensions_;
 
       // Synchronization
       std::mutex monitorLock_;

@@ -97,4 +97,9 @@ namespace remote_scan
    {
       return configData_.remoteScan.imageExtensions;
    }
+
+   const std::vector<RemoteScanFileExtension>& ConfigReader::GetStripExtensions() const
+   {
+      return configData_.remoteScan.stripExtensions;
+   }
 }

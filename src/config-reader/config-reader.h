@@ -23,6 +23,7 @@ namespace remote_scan
       [[nodiscard]] const std::vector<RemoteScanIgnoreFolder>& GetIgnoreFolders() const;
       [[nodiscard]] const std::vector<RemoteScanFileExtension>& GetImageExtensions() const;
       [[nodiscard]] const std::vector<RemoteScanFileExtension>& GetValidFileExtensions() const;
+      [[nodiscard]] const std::vector<RemoteScanFileExtension>& GetStripExtensions() const;
 
    private:
       void ReadConfigFile(const char* path);

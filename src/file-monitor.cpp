@@ -49,27 +49,21 @@ namespace remote_scan
          ignoreFolders_.emplace_back(ignoreFolder.folder);
       }
 
-      const auto& imageExtensions = configReader_->GetImageExtensions();
-      for (const auto& ext : imageExtensions)
-      {
-         auto lowerExt = warp::ToLower(ext.extension);
-         if (!lowerExt.empty() && lowerExt[0] != '.')
+      auto addExtensionsToSet = [](const auto& extensions, std::unordered_set<std::string>& set) {
+         for (const auto& ext : extensions)
          {
-            lowerExt = "." + lowerExt;
+            auto lowerExt = warp::ToLower(ext.extension);
+            if (!lowerExt.empty() && lowerExt[0] != '.')
+            {
+               lowerExt = "." + lowerExt;
+            }
+            set.insert(lowerExt);
          }
-         validImageExtensions_.insert(lowerExt);
-      }
+      };
 
-      const auto& validFileExtensions = configReader_->GetValidFileExtensions();
-      for (const auto& ext : validFileExtensions)
-      {
-         auto lowerExt = warp::ToLower(ext.extension);
-         if (!lowerExt.empty() && lowerExt[0] != '.')
-         {
-            lowerExt = "." + lowerExt;
-         }
-         validExtensions_.insert(lowerExt);
-      }
+      addExtensionsToSet(configReader_->GetImageExtensions(), validImageExtensions_);
+      addExtensionsToSet(configReader_->GetValidFileExtensions(), validExtensions_);
+      addExtensionsToSet(configReader_->GetStripExtensions(), stripExtensions_);
    }
 
    void FileMonitor::GetTasks(std::vector<warp::Task>& tasks)
@@ -340,6 +334,22 @@ namespace remote_scan
                       warp::GetTag("media", pathToLog.generic_string()));
    }
 
+   std::filesystem::path FileMonitor::GetStrippedFileName(const std::filesystem::path& originalPath)
+   {
+      std::string pathStr = warp::ToLower(originalPath.string());
+      for (const std::string& ext : stripExtensions_)
+      {
+         // ext is already lowercase (e.g., ".unmanic.part")
+         if (pathStr.length() >= ext.length() &&
+             pathStr.compare(pathStr.length() - ext.length(), ext.length(), ext) == 0)
+         {
+            return std::filesystem::path(pathStr.substr(0, pathStr.length() - ext.length()));
+         }
+      }
+
+      return originalPath;
+   }
+
    void FileMonitor::AddFileMonitor(const FileMonitorData& fileMonitor)
    {
       std::unique_lock lock(monitorLock_);
@@ -368,7 +378,7 @@ namespace remote_scan
          {
             auto& newPath = monitorIter->paths.emplace_back(ActiveMonitorPath{
                .path = fileMonitor.path,
-               .fileName = fileMonitor.filename,
+               .fileName = GetStrippedFileName(fileMonitor.filename),
                .effect = fileMonitor.effect,
                .displayFolder = warp::GetDisplayFolder(fileMonitor.path)
             });
@@ -385,7 +395,7 @@ namespace remote_scan
 
          auto& newPath = newMonitor.paths.emplace_back(ActiveMonitorPath{
             .path = fileMonitor.path,
-            .fileName = fileMonitor.filename,
+            .fileName = GetStrippedFileName(fileMonitor.filename),
             .effect = fileMonitor.effect,
             .displayFolder = warp::GetDisplayFolder(fileMonitor.path)
          });
