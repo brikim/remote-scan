@@ -187,9 +187,16 @@ namespace remote_scan
             warp::EmbyUpdateType embyUpdateType;
             switch (path.effect)
             {
-               case EffectType::CREATE: embyUpdateType = warp::EmbyUpdateType::CREATED; break;
-               case EffectType::DESTROY: embyUpdateType = warp::EmbyUpdateType::DELETED; break;
-               default: embyUpdateType = warp::EmbyUpdateType::MODIFIED; break;
+               case EffectType::MODIFY:
+                  embyUpdateType = warp::EmbyUpdateType::MODIFIED;
+                  break;
+               case EffectType::DESTROY:
+                  embyUpdateType = warp::EmbyUpdateType::DELETED;
+                  break;
+               default:
+                  // For CREATE and RENAME, we want to trigger a CREATED update. Emby will handle the rest.
+                  embyUpdateType = warp::EmbyUpdateType::CREATED;
+                  break;
             }
 
             mediaUpdates.emplace_back(warp::EmbyMediaUpdate{
