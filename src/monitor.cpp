@@ -147,9 +147,10 @@ namespace remote_scan
       std::string effectType;
       switch (monitor.effect)
       {
-         case EffectType::CREATE: effectType = "Created"; break;
-         case EffectType::DESTROY: effectType = "Deleted"; break;
-         default: effectType = "Modified"; break;
+         case EffectType::RENAME: effectType = "Rename"; break;
+         case EffectType::CREATE: effectType = "Create"; break;
+         case EffectType::DESTROY: effectType = "Delete"; break;
+         default: effectType = "Modify"; break;
       }
       warp::log::Info("{} Scan moved to {} {} {}",
                       warp::GetAnsiText("-->", ANSI_MONITOR_ADDED),
