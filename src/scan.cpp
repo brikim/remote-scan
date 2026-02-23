@@ -97,6 +97,18 @@ namespace remote_scan
                      }
                   }
 
+                  // If this is a rename, we need to send a destroy for the old path
+                  if (effect == EffectType::RENAME)
+                  {
+                     fileMonitorFunc(FileMonitorData{
+                     .scanName = scanName,
+                     .path = isDirectory ? e.path_name : e.path_name.parent_path(),
+                     .filename = isDirectory ? "" : e.path_name.filename(),
+                     .isDirectory = isDirectory,
+                     .effect = EffectType::DESTROY
+                  });
+                  }
+
                   fileMonitorFunc(FileMonitorData{
                      .scanName = scanName,
                      .path = isDirectory ? pathName : pathName.parent_path(),
