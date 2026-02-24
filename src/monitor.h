@@ -51,15 +51,12 @@ namespace remote_scan
       void UpdateExistingFileMonitor(const FileMonitorData& fileMonitor, ActiveMonitor& activeMonitor);
       void AddFileMonitor(const FileMonitorData& fileMonitor);
 
-      std::filesystem::path GetStrippedFileName(const std::filesystem::path& originalPath);
-
       std::shared_ptr<ConfigReader> configReader_;
       Notify notify_;
 
       std::vector<std::filesystem::path> ignoreFolders_;
       std::unordered_set<std::string> validImageExtensions_;
       std::unordered_set<std::string> validExtensions_;
-      std::unordered_set<std::string> stripExtensions_;
 
       // Synchronization
       std::mutex workLock_;

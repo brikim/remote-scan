@@ -145,7 +145,6 @@ namespace remote_scan
       std::vector<RemoteScanIgnoreFolder> ignoreFolders;
       std::vector<RemoteScanFileExtension> validFileExtensions;
       std::vector<RemoteScanFileExtension> imageExtensions;
-      std::vector<RemoteScanFileExtension> stripExtensions;
 
       struct glaze
       {
@@ -156,8 +155,7 @@ namespace remote_scan
             "scans", &RemoteScanConfig::scans,
             "ignore_folders", &RemoteScanConfig::ignoreFolders,
             "valid_file_extensions", &RemoteScanConfig::validFileExtensions,
-            "image_extensions", &RemoteScanConfig::imageExtensions,
-            "strip_extensions", &RemoteScanConfig::stripExtensions
+            "image_extensions", &RemoteScanConfig::imageExtensions
          );
       };
    };

@@ -38,7 +38,6 @@ namespace remote_scan
 
       addExtensionsToSet(configReader_->GetImageExtensions(), validImageExtensions_);
       addExtensionsToSet(configReader_->GetValidFileExtensions(), validExtensions_);
-      addExtensionsToSet(configReader_->GetStripExtensions(), stripExtensions_);
    }
 
    void Monitor::GetTasks(std::vector<warp::Task>& tasks)
@@ -159,21 +158,6 @@ namespace remote_scan
                       warp::GetTag("media", monitor.displayFullPath.generic_string()));
    }
 
-   std::filesystem::path Monitor::GetStrippedFileName(const std::filesystem::path& originalPath)
-   {
-      auto pathStr = warp::ToLower(originalPath.string());
-      for (const auto& ext : stripExtensions_)
-      {
-         if (pathStr.length() >= ext.length() &&
-             pathStr.compare(pathStr.length() - ext.length(), ext.length(), ext) == 0)
-         {
-            return std::filesystem::path(pathStr.substr(0, pathStr.length() - ext.length()));
-         }
-      }
-
-      return originalPath;
-   }
-
    void Monitor::AddNewFileMonitor(const FileMonitorData& fileMonitor)
    {
       // Brand new monitor entry
@@ -183,12 +167,11 @@ namespace remote_scan
       newMonitor.lastPath = fileMonitor.path;
 
       auto displayFolder = warp::GetDisplayFolder(fileMonitor.path);
-      auto strippedFileName = GetStrippedFileName(fileMonitor.filename);
-      auto displayFullPath = strippedFileName.empty() ? std::move(displayFolder) : displayFolder / strippedFileName;
+      auto displayFullPath = fileMonitor.filename.empty() ? std::move(displayFolder) : displayFolder / fileMonitor.filename;
 
       auto& newPath = newMonitor.paths.emplace_back(ActiveMonitorPath{
          .path = fileMonitor.path,
-         .fileName = std::move(strippedFileName),
+         .fileName = fileMonitor.filename,
          .effect = fileMonitor.effect,
          .displayFullPath = std::move(displayFullPath)
       });
@@ -209,19 +192,18 @@ namespace remote_scan
 
       activeMonitor.lastPath = fileMonitor.path;
 
-      auto strippedFileName = GetStrippedFileName(fileMonitor.filename);
-      auto pathIter = std::ranges::find_if(activeMonitor.paths, [&fileMonitor, &strippedFileName](const auto& monitorPath) {
-         return monitorPath.path == fileMonitor.path && monitorPath.fileName == strippedFileName;
+      auto pathIter = std::ranges::find_if(activeMonitor.paths, [&fileMonitor](const auto& monitorPath) {
+         return monitorPath.path == fileMonitor.path && monitorPath.fileName == fileMonitor.filename;
       });
 
       if (pathIter == activeMonitor.paths.end())
       {
          auto displayFolder = warp::GetDisplayFolder(fileMonitor.path);
-         auto displayFullPath = strippedFileName.empty() ? std::move(displayFolder) : displayFolder / strippedFileName;
+         auto displayFullPath = fileMonitor.filename.empty() ? std::move(displayFolder) : displayFolder / fileMonitor.filename;
 
          auto& newPath = activeMonitor.paths.emplace_back(ActiveMonitorPath{
             .path = fileMonitor.path,
-            .fileName = std::move(strippedFileName),
+            .fileName = fileMonitor.filename,
             .effect = fileMonitor.effect,
             .displayFullPath = std::move(displayFullPath)
          });
