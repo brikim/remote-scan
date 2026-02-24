@@ -21,7 +21,6 @@ namespace remote_scan
                           enum wtr::event::path_type pathType,
                           const std::filesystem::path& path)
       {
-         bool isDirectory = false;
          if (effectType != wtr::event::effect_type::destroy)
          {
             // If the item still exists, trust the OS check over the event metadata
@@ -43,7 +42,6 @@ namespace remote_scan
 
       void ProcessRenameEvent(const wtr::event& e,
                               const std::string& scanName,
-                              bool testLogEnabled,
                               const std::function<void(const FileMonitorData& fileMonitor)>& fileMonitorFunc)
       {
          if (e.associated)
@@ -121,7 +119,7 @@ namespace remote_scan
 
             if (effectType == EffectType::RENAME)
             {
-               ProcessRenameEvent(e, scanName, testLogEnabled, fileMonitorFunc);
+               ProcessRenameEvent(e, scanName, fileMonitorFunc);
             }
             else
             {
