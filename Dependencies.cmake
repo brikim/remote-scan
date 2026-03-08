@@ -1,7 +1,7 @@
 # Version Definitions
-set(WARP_VERSION     v2.2.2)
+set(WARP_VERSION     v2.2.3)
 set(GLAZE_VERSION    v7.0.2)
-set(WATCHER_VERSION  0.14.4)
+set(WATCHER_VERSION  0.14.5)
 
 # Repository URLs (optional, but good for one-spot editing)
 set(WARP_REPO     https://github.com/brikim/warp.git)
